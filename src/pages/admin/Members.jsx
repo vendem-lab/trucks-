@@ -141,13 +141,13 @@ export default function Members() {
     }
 
     if (editingId) {
-      if (!import.meta.env.VITE_USE_DEMO_DATA) {
-        push('Member profile editing is disabled in live mode until field-level rules are configured.', 'error');
-        return;
-      }
       const patch = { ...form };
       if (!patch.password) delete patch.password;
       delete patch.status;
+      if (!import.meta.env.VITE_USE_DEMO_DATA) {
+        push('Ask the member to update their profile. Staff can change status here.', 'error');
+        return;
+      }
       updateMember(editingId, patch);
       push('Member record updated.', 'success');
     } else {
@@ -447,12 +447,8 @@ export default function Members() {
                   type="button"
                   className="btn btn-primary btn-sm"
                   onClick={() => {
-                    if (import.meta.env.VITE_USE_DEMO_DATA) {
-                      setMemberStatus(detail.id, 'active');
-                      push(`${detail.name} is now active.`, 'success');
-                    } else {
-                      push('Status changes for existing accounts require the admin function deployment.', 'error');
-                    }
+                    const result = setMemberStatus(detail.id, 'active');
+                    Promise.resolve(result).then(() => push(`${detail.name} is now active.`, 'success')).catch((error) => push(error.message || 'Could not update member status.', 'error'));
                   }}
                 >
                   <Icon name="check" size={14} /> Approve / reactivate
@@ -463,12 +459,8 @@ export default function Members() {
                   type="button"
                   className="btn btn-outline btn-sm"
                   onClick={() => {
-                    if (import.meta.env.VITE_USE_DEMO_DATA) {
-                      setMemberStatus(detail.id, 'suspended');
-                      push(`${detail.name} suspended.`, 'success');
-                    } else {
-                      push('Status changes for existing accounts require the admin function deployment.', 'error');
-                    }
+                    const result = setMemberStatus(detail.id, 'suspended');
+                    Promise.resolve(result).then(() => push(`${detail.name} suspended.`, 'success')).catch((error) => push(error.message || 'Could not update member status.', 'error'));
                   }}
                 >
                   Suspend

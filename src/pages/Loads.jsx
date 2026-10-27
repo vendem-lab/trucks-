@@ -77,7 +77,7 @@ export default function Loads() {
     setAlertError('');
   };
 
-  const handleClaim = (load) => {
+  const handleClaim = async (load) => {
     if (!member) {
       push('Sign in as a member to claim this load.', 'error');
       return;
@@ -86,15 +86,15 @@ export default function Loads() {
       push('Your membership needs to be active before you can claim a load.', 'error');
       return;
     }
-    if (!import.meta.env.VITE_USE_DEMO_DATA) {
-      push('Load claims will be enabled after the trusted server workflow is deployed.', 'error');
-      return;
-    }
-    const result = claimLoad(load.id, member);
-    if (result) {
+    try {
+      const result = await claimLoad(load.id, member);
+      if (result) {
       push(`Load ${load.reference} claimed. The shipper contact is now visible.`, 'success');
-    } else {
+      } else {
       push('That load has already been filled.', 'error');
+      }
+    } catch (error) {
+      push(error.message || 'Could not claim that load.', 'error');
     }
   };
 
@@ -437,7 +437,7 @@ export default function Loads() {
                           <button
                             type="button"
                             className="btn btn-ghost btn-sm"
-                            onClick={() => updateAlert(alert.id, { active: !alert.active })}
+                            onClick={() => Promise.resolve(updateAlert(alert.id, { active: !alert.active })).catch((error) => push(error.message, 'error'))}
                           >
                             {alert.active ? 'Pause' : 'Resume'}
                           </button>
@@ -445,7 +445,7 @@ export default function Loads() {
                             type="button"
                             className="icon-btn icon-btn-danger"
                             onClick={() => {
-                              deleteAlert(alert.id);
+                              Promise.resolve(deleteAlert(alert.id)).catch((error) => push(error.message, 'error'));
                               push('Alert deleted.', 'success');
                             }}
                             aria-label="Delete alert"

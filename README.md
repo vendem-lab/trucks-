@@ -72,9 +72,8 @@ Firestore notifications are sent by the Cloud Functions in `functions/`. They us
 `NOTIFICATION_FROM` Firebase secrets before deploying functions. Function deployment requires a Firebase project with
 Cloud Functions billing enabled. Email integration is notification-only; dues and payments remain demo/manual flows.
 
-Live member profiles are read-only, and live load claims and public event registrations are disabled pending trusted callable functions.
-Live staff profile editing, creating member accounts directly from admin, and changing existing member statuses are also disabled.
-This avoids opening broad client write access to member data; public applications and staff approval are the live account path.
+Callable Cloud Functions handle member profile edits, load claims, event registration and staff member status changes.
+Deleting member accounts and direct admin creation of member accounts remain disabled; public applications are the account entry path.
 The Firestore client rules must be exercised against the Emulator Suite before any real member records are added.
 
 Before real member data is entered, review the Firestore rules and test them with Firebase Emulator Suite. Deploy with

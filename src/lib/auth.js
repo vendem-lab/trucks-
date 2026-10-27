@@ -3,21 +3,16 @@ import {
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signOut as firebaseSignOut,
-  updateProfile
+  updateProfile,
+  updatePassword as firebaseUpdatePassword
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { firebaseAuth, firebaseDb } from './firebase.js';
 import { createMemberRecord } from './store.js';
+import { approveMemberApplicationSecurely } from './callables.js';
 
 export async function approveApplication(applicationId, uid) {
-  const applicationRef = doc(firebaseDb, 'applications', applicationId);
-  const application = await getDoc(applicationRef);
-  if (!application.exists()) throw new Error('Application not found.');
-  const { password: _password, ...member } = application.data();
-  const { id: _id, ...memberData } = member;
-  await setDoc(doc(firebaseDb, 'members', uid), { ...memberData, status: 'active', approvedAt: new Date().toISOString() });
-  await setDoc(doc(firebaseDb, 'users', uid), { name: member.name, email: member.email, role: 'member', memberId: uid, memberStatus: 'active', tier: member.tier }, { merge: true });
-  await updateDoc(applicationRef, { status: 'approved', approvedAt: new Date().toISOString() });
+  return approveMemberApplicationSecurely(applicationId, uid);
 }
 
 export function subscribeToAuth(callback) {
@@ -122,4 +117,9 @@ export async function createMemberAccount(payload) {
 
 export function signOut() {
   return firebaseSignOut(firebaseAuth);
+}
+
+export function changeMemberPassword(password) {
+  if (!firebaseAuth.currentUser) throw new Error('Sign in again before changing your password.');
+  return firebaseUpdatePassword(firebaseAuth.currentUser, password);
 }

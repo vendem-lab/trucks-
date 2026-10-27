@@ -2,6 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { buildSeed } from './seed.js';
 import { addDoc, collection, doc, onSnapshot, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { firebaseDb } from './firebase.js';
+import { claimOpenLoad, registerForEventSecurely, setMemberStatusSecurely, updateOwnMemberProfile } from './callables.js';
 
 const STORAGE_KEY = 'haulway_union_v1';
 const listeners = new Set();
@@ -42,14 +43,14 @@ export function startLiveStore(session = null) {
   if (DEMO_MODE) return () => {};
   if (liveUnsubscribe) liveUnsubscribe();
   state = { ...state, members: [], dues: [], alerts: [], registrations: [], enquiries: [], messages: [], applications: [], settings: {}, loading: true };
-  const privateCollections = ['members', 'dues', 'alerts'];
+  const privateCollections = ['members', 'dues', 'alerts', 'applications'];
   const allowedCollections = session?.role === 'staff'
     ? COLLECTIONS
-    : ['loads', 'news', 'events', ...(session?.memberId ? ['members', 'dues', 'alerts'] : [])];
+    : ['loads', 'news', 'events', ...(session?.memberId ? ['members', 'dues', 'alerts', 'applications'] : [])];
   const unsubs = allowedCollections.map((name) => {
     const ref = collection(firebaseDb, name);
     const source = privateCollections.includes(name) && session?.role !== 'staff'
-      ? query(ref, where(name === 'members' ? 'uid' : 'memberId', '==', session.memberId))
+      ? query(ref, where(name === 'members' || name === 'applications' ? 'uid' : 'memberId', '==', session.memberId))
       : ref;
     return onSnapshot(source, (snapshot) => {
     const records = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
@@ -62,6 +63,13 @@ export function startLiveStore(session = null) {
     listeners.forEach((listener) => listener());
     });
   });
+  if (session?.role === 'member') {
+    const applicationQuery = query(collection(firebaseDb, 'applications'), where('uid', '==', session.memberId));
+    unsubs.push(onSnapshot(applicationQuery, (snapshot) => {
+      state = { ...state, applications: snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })) };
+      listeners.forEach((listener) => listener());
+    }));
+  }
   if (session?.role === 'staff') {
     unsubs.push(onSnapshot(collection(firebaseDb, 'applications'), (snapshot) => {
       state = { ...state, applications: snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })) };
@@ -235,8 +243,12 @@ export async function createMemberRecord(record) {
 
 export function updateMember(id, patch) {
   if (!DEMO_MODE) {
-    console.warn('Client member edits are disabled in live mode.');
-    return getRecord('members', id);
+    return updateOwnMemberProfile(patch).then(() => {
+      const member = { ...getRecord('members', id), ...patch, id };
+      state = { ...state, members: state.members.map((entry) => entry.id === id ? member : entry) };
+      listeners.forEach((listener) => listener());
+      return member;
+    });
   }
   return commit((draft) => {
     const member = draft.members.find((entry) => entry.id === id);
@@ -252,8 +264,12 @@ export function updateMember(id, patch) {
 
 export function setMemberStatus(id, status) {
   if (!DEMO_MODE) {
-    console.warn('Use the Firebase admin workflow to change a member status.');
-    return getRecord('members', id);
+    return setMemberStatusSecurely(id, status).then(() => {
+      const member = { ...getRecord('members', id), id, status };
+      state = { ...state, members: state.members.map((entry) => entry.id === id ? member : entry) };
+      listeners.forEach((listener) => listener());
+      return member;
+    });
   }
   return commit((draft) => {
     const member = draft.members.find((entry) => entry.id === id);
@@ -270,8 +286,7 @@ export function approveMember(id) {
 
 export function deleteMember(id) {
   if (!DEMO_MODE) {
-    removeRecord('members', id);
-    return true;
+    return Promise.reject(new Error('Deleting member accounts must be handled through a trusted admin workflow.'));
   }
   return commit((draft) => {
     draft.members = draft.members.filter((entry) => entry.id !== id);
@@ -368,7 +383,12 @@ export function deleteLoad(id) {
 
 export function claimLoad(loadId, member) {
   if (!DEMO_MODE) {
-    return null;
+    return claimOpenLoad(loadId).then(() => {
+      const updated = { ...getRecord('loads', loadId), status: 'filled', filledBy: member?.name || 'Member', filledById: member?.id || '', filledAt: new Date().toISOString() };
+      state = { ...state, loads: state.loads.map((entry) => entry.id === loadId ? updated : entry) };
+      listeners.forEach((listener) => listener());
+      return updated;
+    });
   }
   return commit((draft) => {
     const load = draft.loads.find((entry) => entry.id === loadId);
@@ -382,7 +402,7 @@ export function claimLoad(loadId, member) {
 }
 
 export function reopenLoad(id) {
-  if (!DEMO_MODE) return updateRecord('loads', id, { status: 'open', filledBy: '', filledById: '', filledAt: '' });
+  if (!DEMO_MODE) return Promise.reject(new Error('Reopening claimed loads requires a trusted admin workflow.'));
   return commit((draft) => {
     const load = draft.loads.find((entry) => entry.id === id);
     if (!load) return null;
@@ -609,7 +629,7 @@ export function deleteEvent(id) {
 
 export function registerForEvent(eventId, payload) {
   if (!DEMO_MODE) {
-    return { ok: false, error: 'Event registration is not yet available in live mode.' };
+    return registerForEventSecurely(eventId, payload).then((result) => ({ ok: true, registration: result }));
   }
   return commit((draft) => {
     const event = draft.events.find((entry) => entry.id === eventId);
@@ -663,10 +683,7 @@ export function getUpcomingEvents() {
 
 export function addAlert(payload) {
   if (!DEMO_MODE) {
-    const alert = { id: uid('alert'), memberId: payload.memberId || '', name: String(payload.name || '').trim(), email: String(payload.email || '').trim().toLowerCase(), phone: String(payload.phone || '').trim(), origin: String(payload.origin || '').trim(), destination: String(payload.destination || '').trim(), trailerType: payload.trailerType || 'Any', minRate: Number(payload.minRate) || 0, frequency: payload.frequency || 'instant', active: true, createdAt: new Date().toISOString() };
-    const { id, ...data } = alert;
-    setDoc(doc(firebaseDb, 'alerts', id), data).catch((error) => console.error('Could not create alert.', error));
-    return alert;
+    return Promise.reject(new Error('Creating alerts requires a trusted function and is currently unavailable.'));
   }
   return commit((draft) => {
     const alert = {
@@ -689,7 +706,7 @@ export function addAlert(payload) {
 }
 
 export function updateAlert(id, patch) {
-  if (!DEMO_MODE) return updateRecord('alerts', id, { ...patch, minRate: Number(patch.minRate ?? getRecord('alerts', id)?.minRate) || 0, active: Boolean(patch.active ?? getRecord('alerts', id)?.active) });
+  if (!DEMO_MODE) return Promise.reject(new Error('Changing alerts requires a trusted function and is currently unavailable.'));
   return commit((draft) => {
     const alert = draft.alerts.find((entry) => entry.id === id);
     if (!alert) return null;
@@ -703,7 +720,7 @@ export function updateAlert(id, patch) {
 }
 
 export function deleteAlert(id) {
-  if (!DEMO_MODE) { removeRecord('alerts', id); return true; }
+  if (!DEMO_MODE) return Promise.reject(new Error('Deleting alerts requires a trusted function and is currently unavailable.'));
   return commit((draft) => {
     draft.alerts = draft.alerts.filter((entry) => entry.id !== id);
     return true;

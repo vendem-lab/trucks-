@@ -7,6 +7,7 @@ import { REGIONS, TIER_BY_ID, TRAILER_TYPES } from '../../config.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
 import { updateMember, useStore } from '../../lib/store.js';
+import { changeMemberPassword } from '../../lib/auth.js';
 import { formatDate, isValidPhone } from '../../lib/format.js';
 
 export default function Profile() {
@@ -46,12 +47,8 @@ export default function Profile() {
     });
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!import.meta.env.VITE_USE_DEMO_DATA) {
-      push('Profile editing is disabled in live mode until field-level account rules are configured.', 'error');
-      return;
-    }
     const next = {};
     if (!form.name.trim()) next.name = 'Enter your full name.';
     if (!isValidPhone(form.phone)) next.phone = 'Enter a valid phone number.';
@@ -70,7 +67,14 @@ export default function Profile() {
     const patch = { ...form };
     if (!patch.password) delete patch.password;
     if (!import.meta.env.VITE_USE_DEMO_DATA) delete patch.password;
-    updateMember(member.id, patch);
+    try {
+      if (patch.password && !import.meta.env.VITE_USE_DEMO_DATA) await changeMemberPassword(patch.password);
+      const saveResult = updateMember(member.id, patch);
+      if (saveResult?.then) await saveResult;
+    } catch (error) {
+      push(error.message || 'Could not update your profile.', 'error');
+      return;
+    }
     setForm((current) => ({ ...current, password: '' }));
     setSaved(true);
     push('Your member details have been updated.', 'success');

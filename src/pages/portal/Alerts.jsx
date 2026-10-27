@@ -177,7 +177,7 @@ export default function Alerts() {
                           type="button"
                           className="btn btn-ghost btn-sm"
                           onClick={() => {
-                            updateAlert(alert.id, { active: !alert.active });
+                            Promise.resolve(updateAlert(alert.id, { active: !alert.active })).catch((error) => push(error.message, 'error'));
                             push(alert.active ? 'Alert paused.' : 'Alert resumed.', 'success');
                           }}
                         >
@@ -187,7 +187,7 @@ export default function Alerts() {
                           type="button"
                           className="icon-btn icon-btn-danger"
                           onClick={() => {
-                            deleteAlert(alert.id);
+                              Promise.resolve(deleteAlert(alert.id)).catch((error) => push(error.message, 'error'));
                             push('Alert deleted.', 'success');
                           }}
                           aria-label="Delete alert"

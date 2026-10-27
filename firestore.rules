@@ -23,11 +23,10 @@ service cloud.firestore {
     }
 
     match /members/{uid} {
-      allow create: if isStaff()
-        && !request.resource.data.keys().hasAny(['password', 'role']);
+      allow create: if false;
       allow list: if isStaff() || (signedIn() && resource.data.uid == request.auth.uid);
       allow get: if isStaff() || isSelf(uid);
-      allow update: if isStaff();
+      allow update: if false;
       allow delete: if isStaff();
     }
     match /applications/{id} {
@@ -35,7 +34,8 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.status == 'pending'
         && !request.resource.data.keys().hasAny(['password', 'role']);
-      allow read, update, delete: if isStaff();
+      allow read: if isStaff() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow update, delete: if false;
     }
     match /counters/{id} {
       allow read, write: if false;
@@ -44,7 +44,7 @@ service cloud.firestore {
     match /loads/{id} {
       allow read: if true;
       allow create, delete: if isStaff();
-      allow update: if isStaff();
+      allow update: if false;
     }
     match /news/{id} {
       allow read: if true;
@@ -60,15 +60,13 @@ service cloud.firestore {
       allow create, update, delete: if isStaff();
     }
     match /alerts/{id} {
-      allow list, get, delete: if isStaff() || (signedIn() && resource.data.memberId == request.auth.uid);
-      allow update: if isStaff() || (signedIn()
-        && resource.data.memberId == request.auth.uid
-        && request.resource.data.memberId == resource.data.memberId
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'origin', 'destination', 'trailerType', 'minRate', 'frequency']));
-      allow create: if signedIn() && request.resource.data.memberId == request.auth.uid;
+      allow list, get: if isStaff() || (signedIn() && resource.data.memberId == request.auth.uid);
+      allow delete, update: if isStaff();
+      allow create: if isStaff();
     }
     match /registrations/{id} {
-      allow read, write: if isStaff();
+      allow read: if isStaff() || (signedIn() && resource.data.memberId == request.auth.uid);
+      allow create, update, delete: if false;
     }
     match /enquiries/{id} {
       allow create: if request.resource.data.keys().hasOnly([

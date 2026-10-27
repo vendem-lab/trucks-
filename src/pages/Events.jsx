@@ -75,7 +75,7 @@ export default function Events() {
         registration.email.toLowerCase() === String(member?.email || session?.email || '').toLowerCase()
     );
 
-  const handleRegister = (event) => {
+  const handleRegister = async (event) => {
     event.preventDefault();
     if (!selected) return;
     const next = {};
@@ -85,7 +85,8 @@ export default function Events() {
     setErrors(next);
     if (Object.keys(next).length) return;
 
-    const result = registerForEvent(selected.id, {
+    try {
+    const result = await registerForEvent(selected.id, {
       ...form,
       memberId: member?.id || ''
     });
@@ -104,6 +105,9 @@ export default function Events() {
     }
     push(`You are registered for ${selected.title}.`, 'success');
     setSelected(null);
+    } catch (error) {
+      push(error.message || 'Registration failed.', 'error');
+    }
   };
 
   return (
