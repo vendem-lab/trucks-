@@ -124,6 +124,8 @@ export async function createMemberAccount(payload) {
     });
     const { password: _password, ...application } = member;
     const result = await createMemberRecord(application);
+    // Applications require office approval; do not leave a pending applicant authenticated.
+    await firebaseSignOut(firebaseAuth);
     return { ...member, applicationId: result.applicationId };
   } catch (error) {
     await firebaseSignOut(firebaseAuth);

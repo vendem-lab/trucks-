@@ -750,8 +750,8 @@ export function deleteAlert(id) {
 export function addMessage(payload) {
   if (!DEMO_MODE) {
     const message = { id: uid('msg'), name: String(payload.name || '').trim(), email: String(payload.email || '').trim().toLowerCase(), phone: String(payload.phone || '').trim(), type: payload.type || 'general', subject: String(payload.subject || '').trim(), message: String(payload.message || '').trim(), read: false, createdAt: new Date().toISOString() };
-    addDoc(collection(firebaseDb, 'enquiries'), Object.fromEntries(Object.entries(message).filter(([key]) => key !== 'id'))).catch((error) => console.error('Could not submit enquiry.', error));
-    return message;
+    return addDoc(collection(firebaseDb, 'enquiries'), Object.fromEntries(Object.entries(message).filter(([key]) => key !== 'id')))
+      .then((result) => ({ ...message, id: result.id }));
   }
   return commit((draft) => {
     const message = {
@@ -801,10 +801,11 @@ export function deleteMessage(id) {
 
 export function updateSettings(patch) {
   if (!DEMO_MODE) {
-    setDoc(doc(firebaseDb, 'settings', 'union'), patch, { merge: true }).catch(console.error);
-    state = { ...state, settings: { ...state.settings, ...patch } };
-    listeners.forEach((listener) => listener());
-    return state.settings;
+    return setDoc(doc(firebaseDb, 'settings', 'union'), patch, { merge: true }).then(() => {
+      state = { ...state, settings: { ...state.settings, ...patch } };
+      listeners.forEach((listener) => listener());
+      return state.settings;
+    });
   }
   return commit((draft) => {
     draft.settings = { ...draft.settings, ...patch };

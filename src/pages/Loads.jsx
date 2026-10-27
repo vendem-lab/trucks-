@@ -98,7 +98,7 @@ export default function Loads() {
     }
   };
 
-  const handleAddAlert = (event) => {
+  const handleAddAlert = async (event) => {
     event.preventDefault();
     if (!member) {
       push('Sign in as a member to set up job alerts.', 'error');
@@ -108,15 +108,19 @@ export default function Loads() {
       setAlertError('Add at least an origin, a destination or a trailer type.');
       return;
     }
-    addAlert({
+    try {
+      await addAlert({
       ...alertForm,
       memberId: member.id,
       name: member.name,
       email: member.email,
       phone: member.phone
-    });
-    setAlertForm(EMPTY_ALERT);
-    push('Job alert saved. We will match new loads against it.', 'success');
+      });
+      setAlertForm(EMPTY_ALERT);
+      push('Job alert saved. We will match new loads against it.', 'success');
+    } catch (error) {
+      push(error.message || 'Could not save the job alert.', 'error');
+    }
   };
 
   return (

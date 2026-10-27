@@ -17,7 +17,8 @@ const firebaseConfig = {
 export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
 export const firebaseAuth = getAuth(firebaseApp);
 export const firebaseDb = getFirestore(firebaseApp);
-export const firebaseFunctions = getFunctions(firebaseApp, 'europe-west1');
+// Callable functions use the default Cloud Functions region unless explicitly configured.
+export const firebaseFunctions = getFunctions(firebaseApp, 'us-central1');
 
 // Analytics is not available in every browser or local preview environment.
 export const firebaseAnalytics =

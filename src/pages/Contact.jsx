@@ -33,7 +33,7 @@ export default function Contact() {
     });
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const next = {};
     if (!form.name.trim()) next.name = 'Tell us your name.';
@@ -45,10 +45,14 @@ export default function Contact() {
       push('Check the highlighted fields before sending.', 'error');
       return;
     }
-    addMessage(form);
-    setForm(INITIAL);
-    setSent(true);
-    push('Message sent. The union office will get back to you.', 'success');
+    try {
+      await addMessage(form);
+      setForm(INITIAL);
+      setSent(true);
+      push('Message sent. The union office will get back to you.', 'success');
+    } catch (error) {
+      push(error.message || 'Could not send your message. Please try again.', 'error');
+    }
   };
 
   return (

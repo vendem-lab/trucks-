@@ -5,7 +5,7 @@ import Field from '../components/Field.jsx';
 import Icon from '../components/Icon.jsx';
 import Modal from '../components/Modal.jsx';
 import { EVENT_TYPES } from '../config.js';
-import { registerForEvent, useStore } from '../lib/store.js';
+import { isDemoMode, registerForEvent, useStore } from '../lib/store.js';
 import { eventDateParts, eventDateRange, eventTime } from '../lib/union.js';
 import { formatCurrency, isValidEmail, isValidPhone } from '../lib/format.js';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -45,6 +45,10 @@ export default function Events() {
   const past = filtered.filter(isPast).reverse();
 
   const openRegistration = (event) => {
+    if (!isDemoMode() && !session) {
+      push('Sign in before registering for an event.', 'error');
+      return;
+    }
     if (event.memberOnly && !member) {
       push('Sign in as a member to register for this event.', 'error');
       return;

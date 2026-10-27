@@ -47,21 +47,25 @@ export default function Alerts() {
     setError('');
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     if (!form.origin.trim() && !form.destination.trim() && form.trailerType === 'Any') {
       setError('Add at least an origin, a destination or a trailer type.');
       return;
     }
-    addAlert({
+    try {
+      await addAlert({
       ...form,
       memberId: member.id,
       name: member.name,
       email: member.email,
       phone: member.phone
-    });
-    setForm(EMPTY);
-    push('Job alert created.', 'success');
+      });
+      setForm(EMPTY);
+      push('Job alert created.', 'success');
+    } catch (error) {
+      push(error.message || 'Could not create the job alert.', 'error');
+    }
   };
 
   return (

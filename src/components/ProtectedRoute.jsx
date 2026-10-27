@@ -27,6 +27,15 @@ export default function ProtectedRoute({ children, role }) {
     );
   }
 
+  if (session.role === 'member' && session.memberStatus === 'pending') {
+    return (
+      <section className="section"><div className="container container-narrow"><div className="card">
+        <h2>Application awaiting approval</h2>
+        <p>Your member portal will be available after the union office approves your application.</p>
+      </div></div></section>
+    );
+  }
+
   if (role && session.role !== role) {
     return <Navigate to={session.role === 'staff' ? '/admin' : '/portal'} replace />;
   }

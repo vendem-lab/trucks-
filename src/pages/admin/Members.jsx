@@ -163,9 +163,14 @@ export default function Members() {
     setFormOpen(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleting) return;
-    deleteMember(deleting.id);
+    try {
+      await deleteMember(deleting.id);
+    } catch (error) {
+      push(error.message || 'Could not remove this member.', 'error');
+      return;
+    }
     push(`${deleting.name} removed from the register.`, 'success');
     setDeleteId(null);
     if (detailId === deleting.id) setDetailId(null);
@@ -174,8 +179,6 @@ export default function Members() {
   const handleApproveApplication = async (application) => {
     try {
       await approveApplication(application.id, application.uid);
-      const approvedMember = { ...application, id: application.uid, status: 'active' };
-      state.members = [...state.members, approvedMember];
       push(`Application for ${application.name} approved.`, 'success');
     } catch (error) {
       push(error.message || 'Could not approve application.', 'error');

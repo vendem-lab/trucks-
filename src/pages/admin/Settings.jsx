@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Modal from '../../components/Modal.jsx';
 import Field from '../../components/Field.jsx';
 import Icon from '../../components/Icon.jsx';
-import { BRAND, TIERS } from '../../config.js';
+import { BRAND, DEMO_MEMBER, DEMO_STAFF, TIERS } from '../../config.js';
 import { isDemoMode, resetDemoData, updateSettings, useStore } from '../../lib/store.js';
 import { isValidEmail, isValidPhone } from '../../lib/format.js';
 import { useAuth } from '../../context/AuthContext.jsx';
@@ -48,7 +48,7 @@ export default function Settings() {
     });
   };
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
     const next = {};
     if (!form.unionName.trim()) next.unionName = 'Enter the union name.';
@@ -64,22 +64,21 @@ export default function Settings() {
       return;
     }
 
-    updateSettings({
-      ...form,
-      duesGraceDays: Number(form.duesGraceDays) || 0
-    });
-    setSaved(true);
-    push('Union settings saved.', 'success');
+    try {
+      await updateSettings({
+        ...form,
+        duesGraceDays: Number(form.duesGraceDays) || 0
+      });
+      setSaved(true);
+      push('Union settings saved.', 'success');
+    } catch (error) {
+      push(error.message || 'Could not save union settings.', 'error');
+    }
   };
 
   const handleReset = () => {
     if (!isDemoMode()) {
       push('Demo reset is disabled in Firebase live mode.', 'error');
-      setResetOpen(false);
-      return;
-    }
-    if (!isDemoMode()) {
-      push('Demo reset is disabled in live Firebase mode.', 'error');
       setResetOpen(false);
       return;
     }
