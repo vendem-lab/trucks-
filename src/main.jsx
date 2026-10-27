@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App.jsx';
+import './lib/firebase.js';
 
 import './styles/base.css';
 import './styles/layout.css';
