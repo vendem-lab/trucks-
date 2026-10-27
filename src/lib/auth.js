@@ -1,7 +1,9 @@
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  GoogleAuthProvider,
   signInWithEmailAndPassword,
+  signInWithPopup,
   signOut as firebaseSignOut,
   updateProfile,
   updatePassword as firebaseUpdatePassword
@@ -79,6 +81,50 @@ export async function signIn(email, password) {
   if (data.memberStatus === 'pending') {
     throw new Error('Your application is awaiting office approval.');
   }
+  return {
+    uid: credential.user.uid,
+    email: credential.user.email || '',
+    name: data.name || credential.user.displayName || 'Member',
+    role: data.role === 'staff' ? 'staff' : 'member',
+    memberId: data.memberId || credential.user.uid,
+    memberStatus: data.memberStatus || 'pending',
+    tier: data.tier || 'independent',
+    staffRole: data.staffRole || ''
+  };
+}
+
+export async function signInWithGoogle() {
+  if (import.meta.env.VITE_USE_DEMO_DATA === 'true') {
+    throw new Error('Google sign-in is available in Firebase live mode only.');
+  }
+  const provider = new GoogleAuthProvider();
+  provider.setCustomParameters({ prompt: 'select_account' });
+  const credential = await signInWithPopup(firebaseAuth, provider);
+  const profileRef = doc(firebaseDb, 'users', credential.user.uid);
+  const profile = await getDoc(profileRef);
+
+  if (!profile.exists()) {
+    await setDoc(profileRef, {
+      uid: credential.user.uid,
+      email: credential.user.email || '',
+      name: credential.user.displayName || '',
+      role: 'member',
+      memberId: credential.user.uid,
+      memberStatus: 'pending',
+      tier: 'independent',
+      createdAt: new Date().toISOString(),
+      signInProvider: 'google'
+    });
+    await firebaseSignOut(firebaseAuth);
+    throw new Error('Google account verified. Submit a membership application, then sign in after office approval.');
+  }
+
+  const data = profile.data();
+  if (data.memberStatus === 'pending') {
+    await firebaseSignOut(firebaseAuth);
+    throw new Error('Your application is awaiting office approval.');
+  }
+
   return {
     uid: credential.user.uid,
     email: credential.user.email || '',

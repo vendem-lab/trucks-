@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { signIn, signOut, subscribeToAuth } from '../lib/auth.js';
+import { signIn, signInWithGoogle, signOut, subscribeToAuth } from '../lib/auth.js';
 
 const AuthContext = createContext(null);
 
@@ -32,11 +32,27 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const loginWithGoogle = useCallback(async () => {
+    setAuthError('');
+    try {
+      return { ok: true, session: await signInWithGoogle() };
+    } catch (error) {
+      const messages = {
+        'auth/popup-closed-by-user': 'Google sign-in was closed before it finished.',
+        'auth/popup-blocked': 'Your browser blocked the Google sign-in window. Allow pop-ups and try again.',
+        'auth/unauthorized-domain': 'This website domain is not authorized for Firebase sign-in.'
+      };
+      const message = messages[error.code] || error.message || 'Google sign-in failed. Please try again.';
+      setAuthError(message);
+      return { ok: false, error: message };
+    }
+  }, []);
+
   const logout = useCallback(() => signOut(), []);
 
   const value = useMemo(
-    () => ({ session, authLoading, authError, login, logout }),
-    [session, authLoading, authError, login, logout]
+    () => ({ session, authLoading, authError, login, loginWithGoogle, logout }),
+    [session, authLoading, authError, login, loginWithGoogle, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

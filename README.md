@@ -26,11 +26,11 @@ Use `.env.example` as a template for local environment configuration. Set `VITE_
 
 ## Firebase live mode
 
-Live mode uses Firebase Authentication (Email/Password), Cloud Firestore, and callable Cloud Functions in `us-central1`. Configure the Firebase project, enable Email/Password sign-in, deploy the Firestore rules and functions, and set the function secrets `MAIL_API_KEY` and `NOTIFICATION_FROM` if office email notifications are required. Cloud Functions deployment may require a billing-enabled Firebase project.
+Live mode uses Firebase Authentication (Email/Password and Google), Cloud Firestore, and callable Cloud Functions in `us-central1`. Enable Email/Password and Google providers in Firebase Authentication, add each deployed domain under Authorized domains, deploy the Firestore rules and functions, and set the function secrets `MAIL_API_KEY` and `NOTIFICATION_FROM` if office email notifications are required. Cloud Functions deployment may require a billing-enabled Firebase project.
 
 Create the first staff account in Firebase Authentication, then create its `users/{uid}` document through the Firebase Console or Admin SDK with `role: "staff"`, `name`, `email`, and `staffRole`. Public registration cannot grant staff access. New member applications remain pending until staff approve them.
 
-Callable functions perform protected member profile updates, load claims, event registration, job-alert management, and member approval/status changes. Deleting member accounts and direct staff creation of member accounts are disabled. Public event registration requires sign-in. Payment integration is not configured.
+Google sign-in authenticates with Firebase and then requires an existing union profile. A first-time Google user gets a pending profile and must submit the regular membership application; staff approval is still required before portal access. Callable functions perform protected member profile updates, load claims, event registration, job-alert management, and member approval/status changes. Deleting member accounts and direct staff creation of member accounts are disabled. Public event registration requires sign-in. Payment integration is not configured.
 
 Before entering real member information, review and verify `firestore.rules` and the Cloud Functions against the Firebase Emulator Suite. Deploy from the project root with:
 
