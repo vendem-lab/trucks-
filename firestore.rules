@@ -61,8 +61,7 @@ service cloud.firestore {
     }
     match /alerts/{id} {
       allow list, get: if isStaff() || (signedIn() && resource.data.memberId == request.auth.uid);
-      allow delete, update: if isStaff();
-      allow create: if isStaff();
+      allow create, update, delete: if false;
     }
     match /registrations/{id} {
       allow read: if isStaff() || (signedIn() && resource.data.memberId == request.auth.uid);

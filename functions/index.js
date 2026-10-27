@@ -105,6 +105,86 @@ export const setMemberStatus = onCall(async (request) => {
   return { ok: true };
 });
 
+const ALERT_FIELDS = ['origin', 'destination', 'trailerType', 'minRate', 'frequency', 'active'];
+
+function cleanAlertInput(input, { creating = false } = {}) {
+  if (!input || typeof input !== 'object' || Array.isArray(input)) {
+    throw new HttpsError('invalid-argument', 'Alert details are required.');
+  }
+  const unsupported = Object.keys(input).filter((key) => !ALERT_FIELDS.includes(key));
+  if (unsupported.length) throw new HttpsError('invalid-argument', 'Alert contains unsupported fields.');
+  const result = {};
+  if ('origin' in input) result.origin = String(input.origin || '').trim().slice(0, 100);
+  if ('destination' in input) result.destination = String(input.destination || '').trim().slice(0, 100);
+  if ('trailerType' in input) result.trailerType = String(input.trailerType || 'Any').trim().slice(0, 60);
+  if ('minRate' in input) {
+    const rate = Number(input.minRate);
+    if (!Number.isFinite(rate) || rate < 0) throw new HttpsError('invalid-argument', 'Minimum rate must be a non-negative number.');
+    result.minRate = rate;
+  }
+  if ('frequency' in input) {
+    const frequency = String(input.frequency || '');
+    if (!['instant', 'daily', 'weekly'].includes(frequency)) throw new HttpsError('invalid-argument', 'Alert frequency is invalid.');
+    result.frequency = frequency;
+  }
+  if ('active' in input) {
+    if (typeof input.active !== 'boolean') throw new HttpsError('invalid-argument', 'Alert active must be boolean.');
+    result.active = input.active;
+  }
+  if (creating && !result.origin && !result.destination && (!result.trailerType || result.trailerType === 'Any')) {
+    throw new HttpsError('invalid-argument', 'Add an origin, destination, or trailer type.');
+  }
+  return result;
+}
+
+export const createJobAlert = onCall(async (request) => {
+  const auth = requireAuth(request);
+  const memberSnapshot = await db.doc(`members/${auth.uid}`).get();
+  if (!memberSnapshot.exists || memberSnapshot.data().status !== 'active') {
+    throw new HttpsError('permission-denied', 'An active membership is required to create job alerts.');
+  }
+  const data = cleanAlertInput(request.data, { creating: true });
+  const member = memberSnapshot.data();
+  const ref = db.collection('alerts').doc();
+  const alert = {
+    ...data,
+    memberId: auth.uid,
+    name: member.name || auth.token.name || 'Member',
+    email: String(auth.token.email || '').toLowerCase(),
+    phone: member.phone || '',
+    active: true,
+    createdAt: new Date().toISOString()
+  };
+  await ref.set(alert);
+  return { id: ref.id, ...alert };
+});
+
+export const updateJobAlert = onCall(async (request) => {
+  const auth = requireAuth(request);
+  const alertId = String(request.data?.alertId || '');
+  if (!alertId) throw new HttpsError('invalid-argument', 'Alert id is required.');
+  const patch = cleanAlertInput(request.data?.patch);
+  if (!Object.keys(patch).length) throw new HttpsError('invalid-argument', 'Provide alert changes.');
+  const ref = db.doc(`alerts/${alertId}`);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) throw new HttpsError('not-found', 'Alert not found.');
+  if (snapshot.data().memberId !== auth.uid) throw new HttpsError('permission-denied', 'You can only update your own alerts.');
+  await ref.update({ ...patch, updatedAt: new Date().toISOString() });
+  return { ok: true };
+});
+
+export const deleteJobAlert = onCall(async (request) => {
+  const auth = requireAuth(request);
+  const alertId = String(request.data?.alertId || '');
+  if (!alertId) throw new HttpsError('invalid-argument', 'Alert id is required.');
+  const ref = db.doc(`alerts/${alertId}`);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) throw new HttpsError('not-found', 'Alert not found.');
+  if (snapshot.data().memberId !== auth.uid) throw new HttpsError('permission-denied', 'You can only delete your own alerts.');
+  await ref.delete();
+  return { ok: true };
+});
+
 export const approveMemberApplication = onCall(async (request) => {
   await requireStaff(request);
   const applicationId = String(request.data?.applicationId || '');

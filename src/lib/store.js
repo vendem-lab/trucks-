@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { buildSeed } from './seed.js';
 import { addDoc, collection, doc, onSnapshot, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { firebaseDb } from './firebase.js';
-import { claimOpenLoad, registerForEventSecurely, setMemberStatusSecurely, updateOwnMemberProfile } from './callables.js';
+import { claimOpenLoad, createJobAlertSecurely, deleteJobAlertSecurely, registerForEventSecurely, setMemberStatusSecurely, updateJobAlertSecurely, updateOwnMemberProfile } from './callables.js';
 
 const STORAGE_KEY = 'haulway_union_v1';
 const listeners = new Set();
@@ -683,7 +683,11 @@ export function getUpcomingEvents() {
 
 export function addAlert(payload) {
   if (!DEMO_MODE) {
-    return Promise.reject(new Error('Creating alerts requires a trusted function and is currently unavailable.'));
+    return createJobAlertSecurely(payload).then((alert) => {
+      state = { ...state, alerts: [alert, ...state.alerts] };
+      listeners.forEach((listener) => listener());
+      return alert;
+    });
   }
   return commit((draft) => {
     const alert = {
@@ -706,7 +710,13 @@ export function addAlert(payload) {
 }
 
 export function updateAlert(id, patch) {
-  if (!DEMO_MODE) return Promise.reject(new Error('Changing alerts requires a trusted function and is currently unavailable.'));
+  if (!DEMO_MODE) {
+    return updateJobAlertSecurely(id, patch).then(() => {
+      state = { ...state, alerts: state.alerts.map((alert) => alert.id === id ? { ...alert, ...patch } : alert) };
+      listeners.forEach((listener) => listener());
+      return getRecord('alerts', id);
+    });
+  }
   return commit((draft) => {
     const alert = draft.alerts.find((entry) => entry.id === id);
     if (!alert) return null;
@@ -720,7 +730,13 @@ export function updateAlert(id, patch) {
 }
 
 export function deleteAlert(id) {
-  if (!DEMO_MODE) return Promise.reject(new Error('Deleting alerts requires a trusted function and is currently unavailable.'));
+  if (!DEMO_MODE) {
+    return deleteJobAlertSecurely(id).then(() => {
+      state = { ...state, alerts: state.alerts.filter((alert) => alert.id !== id) };
+      listeners.forEach((listener) => listener());
+      return true;
+    });
+  }
   return commit((draft) => {
     draft.alerts = draft.alerts.filter((entry) => entry.id !== id);
     return true;

@@ -72,7 +72,7 @@ Firestore notifications are sent by the Cloud Functions in `functions/`. They us
 `NOTIFICATION_FROM` Firebase secrets before deploying functions. Function deployment requires a Firebase project with
 Cloud Functions billing enabled. Email integration is notification-only; dues and payments remain demo/manual flows.
 
-Callable Cloud Functions handle member profile edits, load claims, event registration and staff member status changes.
+Callable Cloud Functions handle member profile edits, load claims, event registration, job alert management and staff member status changes.
 Deleting member accounts and direct admin creation of member accounts remain disabled; public applications are the account entry path.
 The Firestore client rules must be exercised against the Emulator Suite before any real member records are added.
 
