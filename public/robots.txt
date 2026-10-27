@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+
+# Member and staff areas are behind sign-in and should not be indexed.
+Disallow: /portal
+Disallow: /admin
+Disallow: /login

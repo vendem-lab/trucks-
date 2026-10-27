@@ -281,7 +281,113 @@ const PATHS = {
       <path d="M16 14h.01" />
     </>
   ),
-  play: <polygon points="6 3 20 12 6 21 6 3" />
+  play: <polygon points="6 3 20 12 6 21 6 3" />,
+  scale: (
+    <>
+      <path d="M12 3v18" />
+      <path d="M5 7h14" />
+      <path d="m5 7-3 6a3 3 0 0 0 6 0Z" />
+      <path d="m19 7-3 6a3 3 0 0 0 6 0Z" />
+      <path d="M8 21h8" />
+    </>
+  ),
+  clipboard: (
+    <>
+      <rect width="8" height="4" x="8" y="2" rx="1" />
+      <path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" />
+      <path d="M9 12h6" />
+      <path d="M9 16h4" />
+    </>
+  ),
+  graduationCap: (
+    <>
+      <path d="m22 10-10-5L2 10l10 5 10-5Z" />
+      <path d="M6 12v5c0 1.7 2.7 3 6 3s6-1.3 6-3v-5" />
+      <path d="M22 10v6" />
+    </>
+  ),
+  handshake: (
+    <>
+      <path d="m11 17 2 2a1 1 0 0 0 1.4 0l3.6-3.6a2 2 0 0 0 0-2.8l-3.6-3.6a2 2 0 0 0-2.8 0L9 11" />
+      <path d="m2 12 3-3 4 4" />
+      <path d="m22 12-3-3-3 3" />
+      <path d="m8 13 3 3" />
+    </>
+  ),
+  heart: (
+    <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z" />
+  ),
+  wallet: (
+    <>
+      <path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5" />
+      <path d="M18 12h.01" />
+    </>
+  ),
+  bell: (
+    <>
+      <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+    </>
+  ),
+  idCard: (
+    <>
+      <rect width="20" height="14" x="2" y="5" rx="2" />
+      <circle cx="8" cy="11" r="2" />
+      <path d="M5 16c.5-1.5 1.6-2 3-2s2.5.5 3 2" />
+      <path d="M14 9h5" />
+      <path d="M14 13h5" />
+    </>
+  ),
+  megaphone: (
+    <>
+      <path d="m3 11 18-5v12L3 14v-3Z" />
+      <path d="M11.6 16.8a3 3 0 1 1-5.8-1.6" />
+    </>
+  ),
+  briefcase: (
+    <>
+      <rect width="20" height="14" x="2" y="7" rx="2" />
+      <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+      <path d="M2 13h20" />
+    </>
+  ),
+  flag: (
+    <>
+      <path d="M4 22V4" />
+      <path d="M4 4c4-2 8 2 12 0v9c-4 2-8-2-12 0" />
+    </>
+  ),
+  map: (
+    <>
+      <path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z" />
+      <path d="M9 3v15" />
+      <path d="M15 6v15" />
+    </>
+  ),
+  spark: (
+    <path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z" />
+  ),
+  download: (
+    <>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" x2="12" y1="15" y2="3" />
+    </>
+  ),
+  banknote: (
+    <>
+      <rect width="20" height="12" x="2" y="6" rx="2" />
+      <circle cx="12" cy="12" r="2" />
+      <path d="M6 12h.01" />
+      <path d="M18 12h.01" />
+    </>
+  ),
+  smartphone: (
+    <>
+      <rect width="12" height="20" x="6" y="2" rx="2" />
+      <path d="M12 18h.01" />
+    </>
+  )
 };
 
 export default function Icon({ name, size = 20, strokeWidth = 1.8, className = '', ...rest }) {

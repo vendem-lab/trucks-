@@ -8,22 +8,24 @@ import { useStore } from '../lib/store.js';
 
 const NAV = [
   { to: '/admin', label: 'Dashboard', icon: 'dashboard', end: true },
-  { to: '/admin/shipments', label: 'Shipments', icon: 'truck' },
-  { to: '/admin/quotes', label: 'Quotes', icon: 'fileText' },
-  { to: '/admin/fleet', label: 'Fleet', icon: 'route' },
-  { to: '/admin/customers', label: 'Customers', icon: 'users' },
-  { to: '/admin/messages', label: 'Messages', icon: 'message' },
+  { to: '/admin/members', label: 'Members', icon: 'users' },
+  { to: '/admin/loads', label: 'Loads', icon: 'clipboard' },
+  { to: '/admin/dues', label: 'Dues', icon: 'wallet' },
+  { to: '/admin/news', label: 'News', icon: 'megaphone' },
+  { to: '/admin/events', label: 'Events', icon: 'calendar' },
+  { to: '/admin/enquiries', label: 'Enquiries', icon: 'message' },
   { to: '/admin/settings', label: 'Settings', icon: 'settings' }
 ];
 
 const TITLES = {
-  '/admin': { title: 'Dashboard', subtitle: 'A live view of freight moving through Haulway.' },
-  '/admin/shipments': { title: 'Shipments', subtitle: 'Create, dispatch and update every load.' },
-  '/admin/quotes': { title: 'Quotes', subtitle: 'Review incoming requests and convert them into shipments.' },
-  '/admin/fleet': { title: 'Fleet', subtitle: 'Vehicles, drivers and maintenance status.' },
-  '/admin/customers': { title: 'Customers', subtitle: 'The companies shipping with you.' },
-  '/admin/messages': { title: 'Messages', subtitle: 'Enquiries from the contact form.' },
-  '/admin/settings': { title: 'Settings', subtitle: 'Company details, rates and demo data.' }
+  '/admin': { title: 'Dashboard', subtitle: 'Membership, loads and dues at a glance.' },
+  '/admin/members': { title: 'Members', subtitle: 'Applications, profiles and membership status.' },
+  '/admin/loads': { title: 'Load board', subtitle: 'Post verified loads and track who claimed them.' },
+  '/admin/dues': { title: 'Dues', subtitle: 'Invoices, payments and outstanding balances.' },
+  '/admin/news': { title: 'News', subtitle: 'Announcements and updates published to the site.' },
+  '/admin/events': { title: 'Events & training', subtitle: 'Meetings, courses and registrations.' },
+  '/admin/enquiries': { title: 'Enquiries', subtitle: 'Messages from the public contact form.' },
+  '/admin/settings': { title: 'Settings', subtitle: 'Union details, dues rules and demo data.' }
 };
 
 export default function AdminLayout() {
@@ -33,6 +35,7 @@ export default function AdminLayout() {
   const { session, logout } = useAuth();
   const { push } = useToast();
   const state = useStore();
+  const pending = state.members.filter((member) => member.status === 'pending').length;
   const unread = state.messages.filter((message) => !message.read).length;
   const meta = TITLES[location.pathname] || { title: 'Admin', subtitle: '' };
 
@@ -43,7 +46,7 @@ export default function AdminLayout() {
 
   const handleLogout = () => {
     logout();
-    push('Signed out of the dashboard.', 'success');
+    push('Signed out of the union workspace.', 'success');
     navigate('/login', { replace: true });
   };
 
@@ -57,29 +60,33 @@ export default function AdminLayout() {
           </button>
         </div>
         <nav className="admin-nav" aria-label="Admin navigation">
-          <span className="admin-nav-label">Workspace</span>
-          {NAV.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => `admin-nav-link ${isActive ? 'is-active' : ''}`}
-            >
-              <Icon name={item.icon} size={18} />
-              <span>{item.label}</span>
-              {item.to === '/admin/messages' && unread > 0 && <span className="admin-nav-badge">{unread}</span>}
-            </NavLink>
-          ))}
+          <span className="admin-nav-label">Union workspace</span>
+          {NAV.map((item) => {
+            const badge =
+              item.to === '/admin/members' ? pending : item.to === '/admin/enquiries' ? unread : 0;
+            return (
+              <NavLink
+                key={item.to}
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) => `admin-nav-link ${isActive ? 'is-active' : ''}`}
+              >
+                <Icon name={item.icon} size={18} />
+                <span>{item.label}</span>
+                {badge > 0 && <span className="admin-nav-badge">{badge}</span>}
+              </NavLink>
+            );
+          })}
         </nav>
         <div className="admin-sidebar-foot">
           <Link to="/" className="admin-site-link">
-            <Icon name="globe" size={16} /> View storefront
+            <Icon name="globe" size={16} /> View public site
           </Link>
           <div className="admin-user">
             <span className="avatar">{session?.name?.slice(0, 1) || 'A'}</span>
             <div>
-              <strong>{session?.name || 'Admin'}</strong>
-              <span>{session?.role || 'Administrator'}</span>
+              <strong>{session?.name || 'Union staff'}</strong>
+              <span>{session?.staffRole || 'Administrator'}</span>
             </div>
           </div>
           <button type="button" className="admin-logout" onClick={handleLogout}>
@@ -90,7 +97,7 @@ export default function AdminLayout() {
 
       {sidebarOpen && <button type="button" className="admin-scrim" onClick={() => setSidebarOpen(false)} aria-label="Close menu" />}
 
-      <div className="admin-main">
+      <main className="admin-main">
         <header className="admin-topbar">
           <button type="button" className="icon-btn admin-menu-btn" onClick={() => setSidebarOpen(true)} aria-label="Open menu">
             <Icon name="menu" size={20} />
@@ -100,8 +107,8 @@ export default function AdminLayout() {
             <p>{meta.subtitle}</p>
           </div>
           <div className="admin-topbar-actions">
-            <Link to="/quote" className="btn btn-outline btn-sm admin-hide-sm">
-              <Icon name="plus" size={15} /> New quote
+            <Link to="/admin/loads?new=1" className="btn btn-outline btn-sm admin-hide-sm">
+              <Icon name="plus" size={15} /> New load
             </Link>
             <span className="admin-date">{new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })}</span>
           </div>
@@ -110,7 +117,7 @@ export default function AdminLayout() {
         <div className="admin-content">
           <Outlet />
         </div>
-      </div>
+      </main>
     </div>
   );
 }

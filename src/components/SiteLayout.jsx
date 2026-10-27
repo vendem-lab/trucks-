@@ -7,9 +7,11 @@ import { useAuth } from '../context/AuthContext.jsx';
 
 const NAV = [
   { to: '/', label: 'Home', end: true },
-  { to: '/services', label: 'Services' },
-  { to: '/fleet', label: 'Fleet' },
-  { to: '/track', label: 'Track' },
+  { to: '/about', label: 'About' },
+  { to: '/loads', label: 'Load board' },
+  { to: '/membership', label: 'Membership' },
+  { to: '/news', label: 'News' },
+  { to: '/events', label: 'Events' },
   { to: '/contact', label: 'Contact' }
 ];
 
@@ -22,6 +24,13 @@ export default function SiteLayout() {
     setMenuOpen(false);
     window.scrollTo(0, 0);
   }, [location.pathname]);
+
+  const accountLink =
+    session?.role === 'staff'
+      ? { to: '/admin', label: 'Admin dashboard' }
+      : session?.role === 'member'
+        ? { to: '/portal', label: 'My portal' }
+        : { to: '/login', label: 'Member login' };
 
   return (
     <div className="site">
@@ -40,15 +49,20 @@ export default function SiteLayout() {
               </NavLink>
             ))}
             <div className="nav-mobile-actions">
-              <Link to="/track" className="btn btn-outline btn-block">Track a shipment</Link>
-              <Link to="/quote" className="btn btn-primary btn-block">Get a quote</Link>
-              {session && <Link to="/admin" className="btn btn-dark btn-block">Open dashboard</Link>}
+              <Link to={accountLink.to} className="btn btn-outline btn-block">
+                {accountLink.label}
+              </Link>
+              <Link to="/membership" className="btn btn-primary btn-block">
+                Join the union
+              </Link>
             </div>
           </nav>
           <div className="nav-actions">
-            <Link to="/track" className="nav-track-link">Track shipment</Link>
-            <Link to="/quote" className="btn btn-primary btn-sm">
-              Get a quote
+            <Link to={accountLink.to} className="nav-account-link">
+              <Icon name={session ? 'user' : 'lock'} size={15} /> {accountLink.label}
+            </Link>
+            <Link to="/membership" className="btn btn-primary btn-sm">
+              Join the union
               <Icon name="arrowRight" size={15} />
             </Link>
             <button
@@ -73,8 +87,9 @@ export default function SiteLayout() {
           <div className="footer-brand">
             <Logo light showTagline />
             <p className="footer-copy">
-              Reliable road freight across Ghana and the West African corridor. Dedicated trailers,
-              cold chain and expedited runs — tracked from pickup to proof of delivery.
+              An independent union for drivers and owner-operators in Ghana. We negotiate better
+              rates, run a verified load board and stand with members when something goes wrong on
+              the road.
             </p>
             <div className="footer-contact">
               <a href={`mailto:${BRAND.email}`}><Icon name="mail" size={16} /> {BRAND.email}</a>
@@ -83,26 +98,27 @@ export default function SiteLayout() {
           </div>
 
           <div className="footer-col">
-            <h4>Company</h4>
-            <Link to="/services">Services</Link>
-            <Link to="/fleet">Our fleet</Link>
-            <Link to="/contact">Contact</Link>
-            <Link to="/login">Admin login</Link>
+            <h2>The union</h2>
+            <Link to="/about">Who we are</Link>
+            <Link to="/about#leadership">Leadership</Link>
+            <Link to="/membership">Join or renew</Link>
+            <Link to="/contact">Contact the office</Link>
           </div>
 
           <div className="footer-col">
-            <h4>Shipping</h4>
-            <Link to="/quote">Get a quote</Link>
-            <Link to="/track">Track a shipment</Link>
-            <Link to="/services">Cold chain</Link>
-            <Link to="/services">Heavy haul</Link>
+            <h2>Members</h2>
+            <Link to="/loads">Load board</Link>
+            <Link to="/loads#alerts">Job alerts</Link>
+            <Link to="/portal/dues">Dues & payments</Link>
+            <Link to={accountLink.to}>{accountLink.label}</Link>
           </div>
 
           <div className="footer-col">
-            <h4>Visit us</h4>
+            <h2>Visit us</h2>
             <span><Icon name="mapPin" size={16} /> {BRAND.address}</span>
             <span><Icon name="clock" size={16} /> {BRAND.hours}</span>
-            <span><Icon name="shield" size={16} /> Fully insured freight</span>
+            <span><Icon name="phone" size={16} /> Member line {BRAND.memberLine}</span>
+            <span><Icon name="shield" size={16} /> Independent and member-governed</span>
           </div>
         </div>
         <div className="container footer-bottom">

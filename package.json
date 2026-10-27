@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Haulway freight and logistics platform",
+  "description": "Haulway Drivers' Union — member site, load board and dues portal for independent truck drivers in Ghana",
   "scripts": {
     "dev": "vite",
     "build": "vite build",

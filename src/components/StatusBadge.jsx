@@ -1,33 +1,35 @@
 const LABELS = {
-  booked: 'Booked',
-  picked_up: 'Picked up',
-  in_transit: 'In transit',
-  out_for_delivery: 'Out for delivery',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-  new: 'New',
-  reviewed: 'Reviewed',
-  converted: 'Converted',
-  declined: 'Declined',
-  available: 'Available',
-  on_route: 'On route',
-  maintenance: 'Maintenance'
+  active: 'Active',
+  pending: 'Pending',
+  suspended: 'Suspended',
+  expired: 'Expired',
+  open: 'Open',
+  filled: 'Filled',
+  closed: 'Closed',
+  paid: 'Paid',
+  due: 'Due',
+  overdue: 'Overdue',
+  waived: 'Waived',
+  upcoming: 'Upcoming',
+  past: 'Past',
+  draft: 'Draft'
 };
 
 const TONES = {
-  booked: 'info',
-  picked_up: 'warning',
-  in_transit: 'brand',
-  out_for_delivery: 'violet',
-  delivered: 'success',
-  cancelled: 'danger',
-  new: 'brand',
-  reviewed: 'warning',
-  converted: 'success',
-  declined: 'muted',
-  available: 'success',
-  on_route: 'brand',
-  maintenance: 'warning'
+  active: 'success',
+  pending: 'warning',
+  suspended: 'danger',
+  expired: 'muted',
+  open: 'brand',
+  filled: 'success',
+  closed: 'muted',
+  paid: 'success',
+  due: 'warning',
+  overdue: 'danger',
+  waived: 'muted',
+  upcoming: 'info',
+  past: 'muted',
+  draft: 'muted'
 };
 
 export default function StatusBadge({ status, label, dot = true }) {

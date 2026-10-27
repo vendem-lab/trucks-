@@ -1,9 +1,7 @@
 import { useSyncExternalStore } from 'react';
 import { buildSeed } from './seed.js';
-import { calculateEstimate } from './pricing.js';
-import { addDays } from './format.js';
 
-const STORAGE_KEY = 'haulway_v1';
+const STORAGE_KEY = 'haulway_union_v1';
 const listeners = new Set();
 
 function loadState() {
@@ -11,16 +9,16 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && parsed.version === 1) return parsed;
+      if (parsed && parsed.version === 2) return parsed;
     }
   } catch (error) {
-    console.warn('Haulway data could not be read; starting from the demo seed.', error);
+    console.warn('Union data could not be read; starting from the demo seed.', error);
   }
   const seed = buildSeed();
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
   } catch (error) {
-    console.warn('Haulway data could not be saved to this browser.', error);
+    console.warn('Union data could not be saved to this browser.', error);
   }
   return seed;
 }
@@ -32,7 +30,7 @@ function persist(next) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
   } catch (error) {
-    console.warn('Haulway data could not be saved to this browser.', error);
+    console.warn('Union data could not be saved to this browser.', error);
   }
   listeners.forEach((listener) => listener());
 }
@@ -70,263 +68,448 @@ function uid(prefix) {
 
 function nextReference(draft, type) {
   const year = new Date().getFullYear();
-  const value = draft.counters[type];
+  const value = draft.counters[type] ?? 1;
   draft.counters[type] = value + 1;
-  return type === 'shipment' ? `HW-${year}-${value}` : `Q-${year}-${value}`;
+  if (type === 'member') return `HU-${year}-${String(value).padStart(4, '0')}`;
+  if (type === 'dues') return `DUE-${year}-${String(value).padStart(4, '0')}`;
+  return `LD-${year}-${value}`;
 }
 
-function findOrCreateCustomer(draft, payload) {
-  if (payload.customerId) {
-    const existing = draft.customers.find((customer) => customer.id === payload.customerId);
-    if (existing) return existing;
-  }
-  const email = String(payload.email || '').trim().toLowerCase();
-  const company = String(payload.customer || payload.company || '').trim();
-  const match = draft.customers.find((customer) => {
-    if (email && customer.email.toLowerCase() === email) return true;
-    return company && customer.company.toLowerCase() === company.toLowerCase();
-  });
-  if (match) return match;
-
-  const customer = {
-    id: uid('cus'),
-    company: company || payload.name || 'New customer',
-    contact: payload.contact || payload.name || company || 'New customer',
-    email: String(payload.email || '').trim(),
-    phone: String(payload.phone || '').trim(),
-    city: String(payload.origin || '').trim(),
-    since: new Date().toISOString().slice(0, 10),
-    notes: ''
-  };
-  draft.customers.push(customer);
-  return customer;
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }
 
-function timelineEntry(status, note) {
-  return { status, at: new Date().toISOString(), note: note || '' };
-}
+/* ------------------------------------------------------------------
+   Members
+------------------------------------------------------------------ */
 
-export function addQuote(payload) {
+export function addMember(payload) {
   return commit((draft) => {
-    const estimate = calculateEstimate(payload);
-    const quote = {
-      id: uid('quo'),
-      reference: nextReference(draft, 'quote'),
+    const member = {
+      id: uid('mem'),
+      memberNumber: nextReference(draft, 'member'),
       name: String(payload.name || '').trim(),
-      company: String(payload.company || '').trim(),
-      email: String(payload.email || '').trim(),
+      email: String(payload.email || '').trim().toLowerCase(),
       phone: String(payload.phone || '').trim(),
-      origin: String(payload.origin || '').trim(),
-      destination: String(payload.destination || '').trim(),
-      distanceKm: Number(payload.distanceKm) || 0,
-      service: payload.service,
-      weightTons: Number(payload.weightTons) || 0,
-      pickupDate: payload.pickupDate || '',
+      password: String(payload.password || 'driver123'),
+      tier: payload.tier || 'independent',
+      status: 'pending',
+      region: String(payload.region || '').trim(),
+      city: String(payload.city || '').trim(),
+      vehicleType: payload.vehicleType || 'Dry van',
+      vehiclePlate: String(payload.vehiclePlate || '').trim().toUpperCase(),
+      licenseNumber: String(payload.licenseNumber || '').trim().toUpperCase(),
+      joinedAt: today(),
       notes: String(payload.notes || '').trim(),
-      estimate: estimate.total,
-      status: 'new',
+      emergencyName: String(payload.emergencyName || '').trim(),
+      emergencyPhone: String(payload.emergencyPhone || '').trim(),
       createdAt: new Date().toISOString()
     };
-    draft.quotes.unshift(quote);
-    return quote;
+    draft.members.unshift(member);
+    return member;
   });
 }
 
-export function updateQuoteStatus(id, status) {
+export function updateMember(id, patch) {
   return commit((draft) => {
-    const quote = draft.quotes.find((entry) => entry.id === id);
-    if (!quote) return null;
-    quote.status = status;
-    return quote;
+    const member = draft.members.find((entry) => entry.id === id);
+    if (!member) return null;
+    Object.assign(member, patch, {
+      id: member.id,
+      memberNumber: member.memberNumber,
+      email: String(patch.email ?? member.email).trim().toLowerCase()
+    });
+    return member;
   });
 }
 
-export function convertQuoteToShipment(quoteId) {
+export function setMemberStatus(id, status) {
   return commit((draft) => {
-    const quote = draft.quotes.find((entry) => entry.id === quoteId);
-    if (!quote) return null;
-    if (quote.status === 'converted' && quote.convertedShipment) {
-      return draft.shipments.find((entry) => entry.reference === quote.convertedShipment) || null;
-    }
-
-    const customer = findOrCreateCustomer(draft, quote);
-    const pickup = quote.pickupDate || new Date().toISOString().slice(0, 10);
-    const delivery = addDays(pickup, 3).toISOString().slice(0, 10);
-    const reference = nextReference(draft, 'shipment');
-
-    const shipment = {
-      id: uid('shp'),
-      reference,
-      customerId: customer.id,
-      customer: customer.company,
-      email: quote.email || customer.email,
-      phone: quote.phone || customer.phone,
-      origin: quote.origin,
-      destination: quote.destination,
-      distanceKm: quote.distanceKm,
-      service: quote.service,
-      weightTons: quote.weightTons,
-      pickupDate: pickup,
-      deliveryDate: delivery,
-      status: 'booked',
-      price: quote.estimate,
-      driver: 'Unassigned',
-      vehicle: '—',
-      notes: quote.notes,
-      createdAt: new Date().toISOString(),
-      timeline: [timelineEntry('booked', `Converted from quote ${quote.reference}`)]
-    };
-
-    draft.shipments.unshift(shipment);
-    quote.status = 'converted';
-    quote.convertedShipment = reference;
-    return shipment;
+    const member = draft.members.find((entry) => entry.id === id);
+    if (!member) return null;
+    member.status = status;
+    if (status === 'active') member.approvedAt = new Date().toISOString();
+    return member;
   });
 }
 
-export function addShipment(payload) {
+export function approveMember(id) {
+  return setMemberStatus(id, 'active');
+}
+
+export function deleteMember(id) {
   return commit((draft) => {
-    const customer = findOrCreateCustomer(draft, payload);
-    const estimate = calculateEstimate(payload);
-    const reference = nextReference(draft, 'shipment');
-    const shipment = {
-      id: uid('shp'),
-      reference,
-      customerId: customer.id,
-      customer: String(payload.customer || customer.company || '').trim(),
-      email: String(payload.email || customer.email || '').trim(),
-      phone: String(payload.phone || customer.phone || '').trim(),
+    draft.members = draft.members.filter((entry) => entry.id !== id);
+    draft.dues = draft.dues.filter((entry) => entry.memberId !== id);
+    draft.alerts = draft.alerts.filter((entry) => entry.memberId !== id);
+    draft.registrations = draft.registrations.filter((entry) => entry.memberId !== id);
+    return true;
+  });
+}
+
+export function getMemberById(id) {
+  return state.members.find((entry) => entry.id === id) || null;
+}
+
+export function getMemberByEmail(email) {
+  const value = String(email || '').trim().toLowerCase();
+  return state.members.find((entry) => entry.email.toLowerCase() === value) || null;
+}
+
+/* ------------------------------------------------------------------
+   Loads
+------------------------------------------------------------------ */
+
+export function addLoad(payload) {
+  return commit((draft) => {
+    const load = {
+      id: uid('load'),
+      reference: nextReference(draft, 'load'),
+      title: String(payload.title || '').trim(),
+      shipper: String(payload.shipper || '').trim(),
       origin: String(payload.origin || '').trim(),
       destination: String(payload.destination || '').trim(),
       distanceKm: Number(payload.distanceKm) || 0,
-      service: payload.service,
+      trailerType: payload.trailerType || 'Dry van',
       weightTons: Number(payload.weightTons) || 0,
+      rate: Number(payload.rate) || 0,
       pickupDate: payload.pickupDate || '',
       deliveryDate: payload.deliveryDate || '',
-      status: payload.status || 'booked',
-      price: payload.price !== '' && payload.price !== undefined && payload.price !== null
-        ? Number(payload.price)
-        : estimate.total,
-      driver: String(payload.driver || 'Unassigned').trim(),
-      vehicle: String(payload.vehicle || '—').trim(),
+      status: payload.status || 'open',
+      postedAt: new Date().toISOString(),
+      requirements: String(payload.requirements || '').trim(),
+      contactName: String(payload.contactName || '').trim(),
+      contactPhone: String(payload.contactPhone || '').trim(),
+      contactEmail: String(payload.contactEmail || '').trim(),
       notes: String(payload.notes || '').trim(),
-      createdAt: new Date().toISOString(),
-      timeline: [timelineEntry(payload.status || 'booked', 'Shipment created')]
+      filledBy: '',
+      filledById: '',
+      filledAt: ''
     };
-    draft.shipments.unshift(shipment);
-    return shipment;
+    draft.loads.unshift(load);
+    return load;
   });
 }
 
-export function updateShipment(id, patch) {
+export function updateLoad(id, patch) {
   return commit((draft) => {
-    const shipment = draft.shipments.find((entry) => entry.id === id);
-    if (!shipment) return null;
-    Object.assign(shipment, patch, {
-      id: shipment.id,
-      reference: shipment.reference,
-      distanceKm: Number(patch.distanceKm ?? shipment.distanceKm) || 0,
-      weightTons: Number(patch.weightTons ?? shipment.weightTons) || 0,
-      price: Number(patch.price ?? shipment.price) || 0
+    const load = draft.loads.find((entry) => entry.id === id);
+    if (!load) return null;
+    Object.assign(load, patch, {
+      id: load.id,
+      reference: load.reference,
+      distanceKm: Number(patch.distanceKm ?? load.distanceKm) || 0,
+      weightTons: Number(patch.weightTons ?? load.weightTons) || 0,
+      rate: Number(patch.rate ?? load.rate) || 0
     });
-    return shipment;
+    return load;
   });
 }
 
-export function setShipmentStatus(id, status, note) {
+export function deleteLoad(id) {
   return commit((draft) => {
-    const shipment = draft.shipments.find((entry) => entry.id === id);
-    if (!shipment) return null;
-    const changed = shipment.status !== status;
-    shipment.status = status;
-    if (changed || note) {
-      shipment.timeline = Array.isArray(shipment.timeline) ? shipment.timeline : [];
-      shipment.timeline.push(timelineEntry(status, note));
+    draft.loads = draft.loads.filter((entry) => entry.id !== id);
+    return true;
+  });
+}
+
+export function claimLoad(loadId, member) {
+  return commit((draft) => {
+    const load = draft.loads.find((entry) => entry.id === loadId);
+    if (!load || load.status !== 'open') return null;
+    load.status = 'filled';
+    load.filledBy = member?.name || 'Member';
+    load.filledById = member?.id || '';
+    load.filledAt = new Date().toISOString();
+    return load;
+  });
+}
+
+export function reopenLoad(id) {
+  return commit((draft) => {
+    const load = draft.loads.find((entry) => entry.id === id);
+    if (!load) return null;
+    load.status = 'open';
+    load.filledBy = '';
+    load.filledById = '';
+    load.filledAt = '';
+    return load;
+  });
+}
+
+export function getOpenLoads() {
+  return state.loads.filter((entry) => entry.status === 'open');
+}
+
+/* ------------------------------------------------------------------
+   Dues
+------------------------------------------------------------------ */
+
+export function addDues(payload) {
+  return commit((draft) => {
+    const member = draft.members.find((entry) => entry.id === payload.memberId);
+    const invoice = {
+      id: uid('due'),
+      reference: nextReference(draft, 'dues'),
+      memberId: payload.memberId,
+      memberName: member?.name || payload.memberName || 'Member',
+      period: String(payload.period || '').trim(),
+      amount: Number(payload.amount) || 0,
+      dueDate: payload.dueDate || '',
+      status: payload.status || 'due',
+      paidAt: '',
+      method: '',
+      note: String(payload.note || '').trim()
+    };
+    draft.dues.unshift(invoice);
+    return invoice;
+  });
+}
+
+export function markDuesPaid(id, method = 'momo') {
+  return commit((draft) => {
+    const invoice = draft.dues.find((entry) => entry.id === id);
+    if (!invoice) return null;
+    invoice.status = 'paid';
+    invoice.paidAt = new Date().toISOString();
+    invoice.method = method;
+    invoice.note = `Payment recorded by ${method}.`;
+    return invoice;
+  });
+}
+
+export function setDuesStatus(id, status) {
+  return commit((draft) => {
+    const invoice = draft.dues.find((entry) => entry.id === id);
+    if (!invoice) return null;
+    invoice.status = status;
+    if (status === 'paid' && !invoice.paidAt) invoice.paidAt = new Date().toISOString();
+    if (status !== 'paid') {
+      invoice.paidAt = '';
+      invoice.method = '';
     }
-    return shipment;
+    return invoice;
   });
 }
 
-export function deleteShipment(id) {
+export function deleteDues(id) {
   return commit((draft) => {
-    draft.shipments = draft.shipments.filter((entry) => entry.id !== id);
+    draft.dues = draft.dues.filter((entry) => entry.id !== id);
     return true;
   });
 }
 
-export function addVehicle(payload) {
+export function getMemberDues(memberId) {
+  return state.dues
+    .filter((entry) => entry.memberId === memberId)
+    .sort((a, b) => String(b.period).localeCompare(String(a.period)));
+}
+
+export function getMemberAlerts(memberId) {
+  return state.alerts
+    .filter((entry) => entry.memberId === memberId)
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+}
+
+/* ------------------------------------------------------------------
+   News
+------------------------------------------------------------------ */
+
+export function addNews(payload) {
   return commit((draft) => {
-    const vehicle = {
-      id: uid('veh'),
-      unit: String(payload.unit || '').trim().toUpperCase(),
-      make: String(payload.make || '').trim(),
-      year: Number(payload.year) || new Date().getFullYear(),
-      type: payload.type,
-      plate: String(payload.plate || '').trim().toUpperCase(),
-      capacityTons: Number(payload.capacityTons) || 0,
-      status: payload.status || 'available',
-      driver: String(payload.driver || 'Unassigned').trim(),
-      odometer: Number(payload.odometer) || 0,
-      nextService: payload.nextService || ''
+    const article = {
+      id: uid('news'),
+      title: String(payload.title || '').trim(),
+      category: payload.category || 'announcement',
+      excerpt: String(payload.excerpt || '').trim(),
+      body: normalizeBody(payload.body),
+      author: String(payload.author || '').trim() || 'Union office',
+      publishedAt: payload.publishedAt ? new Date(payload.publishedAt).toISOString() : new Date().toISOString(),
+      featured: Boolean(payload.featured),
+      readMins: Number(payload.readMins) || 2
     };
-    draft.fleet.push(vehicle);
-    return vehicle;
+    if (article.featured) draft.news.forEach((entry) => { entry.featured = false; });
+    draft.news.unshift(article);
+    return article;
   });
 }
 
-export function updateVehicle(id, patch) {
+export function updateNews(id, patch) {
   return commit((draft) => {
-    const vehicle = draft.fleet.find((entry) => entry.id === id);
-    if (!vehicle) return null;
-    Object.assign(vehicle, patch, {
-      id: vehicle.id,
-      year: Number(patch.year ?? vehicle.year) || vehicle.year,
-      capacityTons: Number(patch.capacityTons ?? vehicle.capacityTons) || 0,
-      odometer: Number(patch.odometer ?? vehicle.odometer) || 0
+    const article = draft.news.find((entry) => entry.id === id);
+    if (!article) return null;
+    Object.assign(article, patch, {
+      id: article.id,
+      body: patch.body !== undefined ? normalizeBody(patch.body) : article.body,
+      featured: Boolean(patch.featured ?? article.featured)
     });
-    return vehicle;
+    if (article.featured) {
+      draft.news.forEach((entry) => {
+        if (entry.id !== id) entry.featured = false;
+      });
+    }
+    return article;
   });
 }
 
-export function deleteVehicle(id) {
+export function deleteNews(id) {
   return commit((draft) => {
-    draft.fleet = draft.fleet.filter((entry) => entry.id !== id);
+    draft.news = draft.news.filter((entry) => entry.id !== id);
     return true;
   });
 }
 
-export function addCustomer(payload) {
+function normalizeBody(value) {
+  if (Array.isArray(value)) return value.map((line) => String(line).trim()).filter(Boolean);
+  return String(value || '')
+    .split(/\n\s*\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+/* ------------------------------------------------------------------
+   Events
+------------------------------------------------------------------ */
+
+export function addEvent(payload) {
   return commit((draft) => {
-    const customer = {
-      id: uid('cus'),
-      company: String(payload.company || '').trim(),
-      contact: String(payload.contact || '').trim(),
-      email: String(payload.email || '').trim(),
-      phone: String(payload.phone || '').trim(),
-      city: String(payload.city || '').trim(),
-      since: payload.since || new Date().toISOString().slice(0, 10),
-      notes: String(payload.notes || '').trim()
+    const event = {
+      id: uid('event'),
+      title: String(payload.title || '').trim(),
+      type: payload.type || 'meeting',
+      description: String(payload.description || '').trim(),
+      location: String(payload.location || '').trim(),
+      region: String(payload.region || '').trim(),
+      startDate: payload.startDate ? new Date(payload.startDate).toISOString() : new Date().toISOString(),
+      endDate: payload.endDate ? new Date(payload.endDate).toISOString() : '',
+      capacity: Number(payload.capacity) || 0,
+      registered: 0,
+      fee: Number(payload.fee) || 0,
+      memberOnly: Boolean(payload.memberOnly),
+      trainer: String(payload.trainer || '').trim()
     };
-    draft.customers.push(customer);
-    return customer;
+    draft.events.unshift(event);
+    return event;
   });
 }
 
-export function updateCustomer(id, patch) {
+export function updateEvent(id, patch) {
   return commit((draft) => {
-    const customer = draft.customers.find((entry) => entry.id === id);
-    if (!customer) return null;
-    Object.assign(customer, patch, { id: customer.id });
-    return customer;
+    const event = draft.events.find((entry) => entry.id === id);
+    if (!event) return null;
+    Object.assign(event, patch, {
+      id: event.id,
+      capacity: Number(patch.capacity ?? event.capacity) || 0,
+      fee: Number(patch.fee ?? event.fee) || 0,
+      memberOnly: Boolean(patch.memberOnly ?? event.memberOnly),
+      registered: Number(patch.registered ?? event.registered) || 0
+    });
+    return event;
   });
 }
 
-export function deleteCustomer(id) {
+export function deleteEvent(id) {
   return commit((draft) => {
-    draft.customers = draft.customers.filter((entry) => entry.id !== id);
+    draft.events = draft.events.filter((entry) => entry.id !== id);
+    draft.registrations = draft.registrations.filter((entry) => entry.eventId !== id);
     return true;
   });
 }
+
+export function registerForEvent(eventId, payload) {
+  return commit((draft) => {
+    const event = draft.events.find((entry) => entry.id === eventId);
+    if (!event) return { ok: false, error: 'Event not found.' };
+    const email = String(payload.email || '').trim().toLowerCase();
+    const existing = draft.registrations.find(
+      (entry) => entry.eventId === eventId && entry.email.toLowerCase() === email
+    );
+    if (existing) return { ok: false, duplicate: true, registration: existing };
+    const registration = {
+      id: uid('reg'),
+      eventId,
+      eventTitle: event.title,
+      memberId: payload.memberId || '',
+      name: String(payload.name || '').trim(),
+      email,
+      phone: String(payload.phone || '').trim(),
+      createdAt: new Date().toISOString()
+    };
+    draft.registrations.unshift(registration);
+    event.registered = (Number(event.registered) || 0) + 1;
+    return { ok: true, registration };
+  });
+}
+
+export function getEventRegistrations(eventId) {
+  return state.registrations.filter((entry) => entry.eventId === eventId);
+}
+
+export function deleteRegistration(id) {
+  return commit((draft) => {
+    const registration = draft.registrations.find((entry) => entry.id === id);
+    if (!registration) return false;
+    draft.registrations = draft.registrations.filter((entry) => entry.id !== id);
+    const event = draft.events.find((entry) => entry.id === registration.eventId);
+    if (event) event.registered = Math.max(0, (Number(event.registered) || 0) - 1);
+    return true;
+  });
+}
+
+export function getUpcomingEvents() {
+  return state.events
+    .filter((entry) => new Date(entry.startDate).getTime() >= Date.now() - 86400000)
+    .sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+}
+
+/* ------------------------------------------------------------------
+   Job alerts
+------------------------------------------------------------------ */
+
+export function addAlert(payload) {
+  return commit((draft) => {
+    const alert = {
+      id: uid('alert'),
+      memberId: payload.memberId || '',
+      name: String(payload.name || '').trim(),
+      email: String(payload.email || '').trim().toLowerCase(),
+      phone: String(payload.phone || '').trim(),
+      origin: String(payload.origin || '').trim(),
+      destination: String(payload.destination || '').trim(),
+      trailerType: payload.trailerType || 'Any',
+      minRate: Number(payload.minRate) || 0,
+      frequency: payload.frequency || 'instant',
+      active: true,
+      createdAt: new Date().toISOString()
+    };
+    draft.alerts.unshift(alert);
+    return alert;
+  });
+}
+
+export function updateAlert(id, patch) {
+  return commit((draft) => {
+    const alert = draft.alerts.find((entry) => entry.id === id);
+    if (!alert) return null;
+    Object.assign(alert, patch, {
+      id: alert.id,
+      minRate: Number(patch.minRate ?? alert.minRate) || 0,
+      active: Boolean(patch.active ?? alert.active)
+    });
+    return alert;
+  });
+}
+
+export function deleteAlert(id) {
+  return commit((draft) => {
+    draft.alerts = draft.alerts.filter((entry) => entry.id !== id);
+    return true;
+  });
+}
+
+/* ------------------------------------------------------------------
+   Enquiries
+------------------------------------------------------------------ */
 
 export function addMessage(payload) {
   return commit((draft) => {
@@ -334,6 +517,8 @@ export function addMessage(payload) {
       id: uid('msg'),
       name: String(payload.name || '').trim(),
       email: String(payload.email || '').trim(),
+      phone: String(payload.phone || '').trim(),
+      type: payload.type || 'general',
       subject: String(payload.subject || '').trim(),
       message: String(payload.message || '').trim(),
       read: false,
@@ -360,6 +545,10 @@ export function deleteMessage(id) {
   });
 }
 
+/* ------------------------------------------------------------------
+   Settings & demo data
+------------------------------------------------------------------ */
+
 export function updateSettings(patch) {
   return commit((draft) => {
     draft.settings = { ...draft.settings, ...patch };
@@ -371,14 +560,4 @@ export function resetDemoData() {
   const seed = buildSeed();
   persist(seed);
   return seed;
-}
-
-export function findShipmentByReference(reference) {
-  const value = String(reference || '').trim().toUpperCase();
-  if (!value) return null;
-  return state.shipments.find((entry) => String(entry.reference).toUpperCase() === value) || null;
-}
-
-export function getSampleReferences() {
-  return state.shipments.slice(0, 3).map((entry) => entry.reference);
 }
