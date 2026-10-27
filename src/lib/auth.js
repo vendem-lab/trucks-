@@ -25,7 +25,16 @@ export function subscribeToAuth(callback) {
     try {
       const profile = await getDoc(doc(firebaseDb, 'users', user.uid));
       if (!profile.exists()) {
-        callback({ uid: user.uid, email: user.email || '', name: user.displayName || 'Member', role: 'member', memberId: user.uid, memberStatus: 'pending', tier: 'independent' });
+        callback({
+          uid: user.uid,
+          email: user.email || '',
+          name: user.displayName || 'Member',
+          role: 'member',
+          memberId: user.uid,
+          memberStatus: 'pending',
+          tier: 'independent',
+          profileMissing: true
+        });
         return;
       }
       const data = profile.exists() ? profile.data() : {};
@@ -41,8 +50,16 @@ export function subscribeToAuth(callback) {
       });
     } catch (error) {
       console.error('Could not load account profile.', error);
-      await firebaseSignOut(firebaseAuth);
-      callback(null);
+      callback({
+        uid: user.uid,
+        email: user.email || '',
+        name: user.displayName || 'Member',
+        role: 'member',
+        memberId: user.uid,
+        memberStatus: 'pending',
+        tier: 'independent',
+        profileError: error.message || 'Could not read your account profile.'
+      });
     }
   });
 }
@@ -60,7 +77,6 @@ export async function signIn(email, password) {
   }
   const data = profile.data();
   if (data.memberStatus === 'pending') {
-    await firebaseSignOut(firebaseAuth);
     throw new Error('Your application is awaiting office approval.');
   }
   return {

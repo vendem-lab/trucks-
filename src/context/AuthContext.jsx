@@ -11,6 +11,9 @@ export function AuthProvider({ children }) {
   useEffect(() => subscribeToAuth((next) => {
     setSession(next);
     setAuthLoading(false);
+    if (next?.profileError) setAuthError(`Signed in, but the account profile could not be loaded: ${next.profileError}`);
+    else if (next?.profileMissing) setAuthError('Signed in, but no union profile exists for this account. Contact the union office.');
+    else setAuthError('');
   }), []);
 
   const login = useCallback(async (email, password) => {

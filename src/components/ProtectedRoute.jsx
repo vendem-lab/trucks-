@@ -2,7 +2,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.jsx';
 
 export default function ProtectedRoute({ children, role }) {
-  const { session, authLoading } = useAuth();
+  const { session, authLoading, authError } = useAuth();
   const location = useLocation();
 
   if (authLoading) {
@@ -11,6 +11,20 @@ export default function ProtectedRoute({ children, role }) {
 
   if (!session) {
     return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+  }
+
+  if (session.profileMissing || session.profileError) {
+    return (
+      <section className="section">
+        <div className="container container-narrow">
+          <div className="card">
+            <h2>Account setup needs attention</h2>
+            <p role="alert">{authError || session.profileError || 'Your Firebase account has no union profile yet.'}</p>
+            <p>Contact the union office to finish linking your account.</p>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   if (role && session.role !== role) {
