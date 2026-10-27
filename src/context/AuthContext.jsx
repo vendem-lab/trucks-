@@ -1,23 +1,40 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react';
-import { readSession, signIn, signOut } from '../lib/auth.js';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { signIn, signOut, subscribeToAuth } from '../lib/auth.js';
 
 const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-  const [session, setSession] = useState(() => readSession());
+  const [session, setSession] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authError, setAuthError] = useState('');
 
-  const login = useCallback((email, password) => {
-    const result = signIn(email, password);
-    if (result.ok) setSession(result.session);
-    return result;
+  useEffect(() => subscribeToAuth((next) => {
+    setSession(next);
+    setAuthLoading(false);
+  }), []);
+
+  const login = useCallback(async (email, password) => {
+    setAuthError('');
+    try {
+      return { ok: true, session: await signIn(email, password) };
+    } catch (error) {
+      const messages = {
+        'auth/invalid-credential': 'That email and password combination is not recognised.',
+        'auth/user-disabled': 'This account is disabled. Contact the union office.',
+        'auth/too-many-requests': 'Too many attempts. Wait a moment and try again.'
+      };
+      const message = messages[error.code] || error.message || 'Sign-in failed. Please try again.';
+      setAuthError(message);
+      return { ok: false, error: message };
+    }
   }, []);
 
-  const logout = useCallback(() => {
-    signOut();
-    setSession(null);
-  }, []);
+  const logout = useCallback(() => signOut(), []);
 
-  const value = useMemo(() => ({ session, login, logout }), [session, login, logout]);
+  const value = useMemo(
+    () => ({ session, authLoading, authError, login, logout }),
+    [session, authLoading, authError, login, logout]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

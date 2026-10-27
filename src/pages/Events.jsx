@@ -89,6 +89,10 @@ export default function Events() {
       ...form,
       memberId: member?.id || ''
     });
+    if (!result.ok && result.error) {
+      push(result.error, 'error');
+      return;
+    }
     if (!result.ok) {
       push(
         result.duplicate

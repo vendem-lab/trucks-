@@ -1,0 +1,89 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function isStaff() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff';
+    }
+    function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
+
+    match /users/{uid} {
+      allow create: if isSelf(uid)
+        && request.resource.data.role == 'member'
+        && request.resource.data.memberStatus == 'pending';
+      allow read: if isSelf(uid) || isStaff();
+      allow update: if isStaff()
+        || (isSelf(uid)
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.memberStatus == resource.data.memberStatus
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name']));
+      allow delete: if isStaff();
+    }
+
+    match /members/{uid} {
+      allow create: if isStaff()
+        && !request.resource.data.keys().hasAny(['password', 'role']);
+      allow list: if isStaff() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow get: if isStaff() || isSelf(uid);
+      allow update: if isStaff();
+      allow delete: if isStaff();
+    }
+    match /applications/{id} {
+      allow create: if signedIn()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'pending'
+        && !request.resource.data.keys().hasAny(['password', 'role']);
+      allow read, update, delete: if isStaff();
+    }
+    match /counters/{id} {
+      allow read, write: if false;
+    }
+
+    match /loads/{id} {
+      allow read: if true;
+      allow create, delete: if isStaff();
+      allow update: if isStaff();
+    }
+    match /news/{id} {
+      allow read: if true;
+      allow create, update, delete: if isStaff();
+    }
+    match /events/{id} {
+      allow read: if true;
+      allow create, update, delete: if isStaff();
+    }
+    match /dues/{id} {
+      allow list: if isStaff() || (signedIn() && resource.data.memberId == request.auth.uid);
+      allow get: if isStaff() || (signedIn() && resource.data.memberId == request.auth.uid);
+      allow create, update, delete: if isStaff();
+    }
+    match /alerts/{id} {
+      allow list, get, delete: if isStaff() || (signedIn() && resource.data.memberId == request.auth.uid);
+      allow update: if isStaff() || (signedIn()
+        && resource.data.memberId == request.auth.uid
+        && request.resource.data.memberId == resource.data.memberId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['active', 'origin', 'destination', 'trailerType', 'minRate', 'frequency']));
+      allow create: if signedIn() && request.resource.data.memberId == request.auth.uid;
+    }
+    match /registrations/{id} {
+      allow read, write: if isStaff();
+    }
+    match /enquiries/{id} {
+      allow create: if request.resource.data.keys().hasOnly([
+        'name', 'email', 'phone', 'type', 'subject', 'message', 'read', 'createdAt'
+      ]) && request.resource.data.read == false;
+      allow read, update, delete: if isStaff();
+    }
+    match /notificationFailures/{id} {
+      allow read: if isStaff();
+      allow write: if false;
+    }
+    match /settings/{id} {
+      allow read: if true;
+      allow write: if isStaff();
+    }
+    match /{document=**} { allow read, write: if false; }
+  }
+}

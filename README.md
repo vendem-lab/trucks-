@@ -59,6 +59,27 @@ npm run preview
 npm test
 ```
 
+## Firebase live mode
+
+The app uses Firebase Authentication and Cloud Firestore when `VITE_USE_DEMO_DATA` is not set to `true`.
+Create a local `.env` file from `.env.example`, deploy `firestore.rules`, and enable Email/Password in Firebase Authentication.
+The existing seeded preview can be used locally with `VITE_USE_DEMO_DATA=true`; preview data and demo passwords are never uploaded to Firestore.
+
+Create the first staff account in Firebase Authentication, then create `users/{uid}` in Firestore with `role: "staff"`,
+`name`, `email`, and `staffRole`. Do this from the Firebase Console or Admin SDK; public sign-up cannot grant staff access.
+
+Firestore notifications are sent by the Cloud Functions in `functions/`. They use Resend; set the `MAIL_API_KEY` and
+`NOTIFICATION_FROM` Firebase secrets before deploying functions. Function deployment requires a Firebase project with
+Cloud Functions billing enabled. Email integration is notification-only; dues and payments remain demo/manual flows.
+
+Live member profiles are read-only, and live load claims and public event registrations are disabled pending trusted callable functions.
+Live staff profile editing, creating member accounts directly from admin, and changing existing member statuses are also disabled.
+This avoids opening broad client write access to member data; public applications and staff approval are the live account path.
+The Firestore client rules must be exercised against the Emulator Suite before any real member records are added.
+
+Before real member data is entered, review the Firestore rules and test them with Firebase Emulator Suite. Deploy with
+`firebase deploy --only firestore:rules,functions` after installing the Firebase CLI and dependencies in `functions/`.
+
 ## Project layout
 
 ```

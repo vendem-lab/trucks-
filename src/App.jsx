@@ -5,6 +5,18 @@ import MemberLayout from './components/MemberLayout.jsx';
 import ProtectedRoute from './components/ProtectedRoute.jsx';
 import { ToastProvider } from './context/ToastContext.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
+import { useEffect } from 'react';
+import { startLiveStore } from './lib/store.js';
+import { useAuth } from './context/AuthContext.jsx';
+
+function LiveDataProvider({ children }) {
+  const { session, authLoading } = useAuth();
+  useEffect(() => {
+    if (authLoading) return undefined;
+    return startLiveStore(session);
+  }, [session?.uid, session?.role, session?.memberId, authLoading]);
+  return children;
+}
 
 import Home from './pages/Home.jsx';
 import About from './pages/About.jsx';
@@ -36,6 +48,7 @@ export default function App() {
     <BrowserRouter>
       <ToastProvider>
         <AuthProvider>
+          <LiveDataProvider>
           <Routes>
             <Route element={<SiteLayout />}>
               <Route path="/" element={<Home />} />
@@ -85,6 +98,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/admin" replace />} />
             </Route>
           </Routes>
+          </LiveDataProvider>
         </AuthProvider>
       </ToastProvider>
     </BrowserRouter>

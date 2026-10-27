@@ -2,8 +2,8 @@ import { useState } from 'react';
 import Modal from '../../components/Modal.jsx';
 import Field from '../../components/Field.jsx';
 import Icon from '../../components/Icon.jsx';
-import { BRAND, DEMO_MEMBER, DEMO_STAFF, TIERS } from '../../config.js';
-import { resetDemoData, updateSettings, useStore } from '../../lib/store.js';
+import { BRAND, TIERS } from '../../config.js';
+import { isDemoMode, resetDemoData, updateSettings, useStore } from '../../lib/store.js';
 import { isValidEmail, isValidPhone } from '../../lib/format.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import { useToast } from '../../context/ToastContext.jsx';
@@ -73,6 +73,16 @@ export default function Settings() {
   };
 
   const handleReset = () => {
+    if (!isDemoMode()) {
+      push('Demo reset is disabled in Firebase live mode.', 'error');
+      setResetOpen(false);
+      return;
+    }
+    if (!isDemoMode()) {
+      push('Demo reset is disabled in live Firebase mode.', 'error');
+      setResetOpen(false);
+      return;
+    }
     resetDemoData();
     logout();
     setResetOpen(false);
@@ -206,11 +216,12 @@ export default function Settings() {
             <button type="submit" className="btn btn-primary">
               <Icon name="check" size={16} /> Save settings
             </button>
-            <span className="settings-note">Changes are stored in this browser for the demo.</span>
+            <span className="settings-note">{isDemoMode() ? 'Changes are stored in this browser for the demo.' : 'Changes are stored in Firestore.'}</span>
           </div>
         </form>
 
         <div className="admin-stack">
+          {isDemoMode() && <>
           <section className="card">
             <div className="card-head">
               <div>
@@ -292,6 +303,7 @@ export default function Settings() {
               them. No real member data should be entered into this demo.
             </p>
           </section>
+          </>}
         </div>
       </div>
 

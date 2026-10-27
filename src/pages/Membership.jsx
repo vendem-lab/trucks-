@@ -13,7 +13,8 @@ import {
   TIER_BY_ID,
   TRAILER_TYPES
 } from '../config.js';
-import { addMember, getMemberByEmail } from '../lib/store.js';
+import { createMemberAccount } from '../lib/auth.js';
+import { getMemberByEmail } from '../lib/store.js';
 import { isValidEmail, isValidPhone } from '../lib/format.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
@@ -79,7 +80,7 @@ export default function Membership() {
     document.getElementById('join')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     const next = {};
     if (!form.name.trim()) next.name = 'Enter your full name.';
@@ -98,10 +99,19 @@ export default function Membership() {
       return;
     }
 
-    const member = addMember(form);
-    setCreated(member);
-    setForm(EMPTY);
-    push(`Application received. Your member number is ${member.memberNumber}.`, 'success');
+    try {
+      const member = await createMemberAccount(form);
+      setCreated(member);
+      setForm(EMPTY);
+      push('Application received. Your account is pending office approval.', 'success');
+    } catch (error) {
+      const messages = {
+        'auth/email-already-in-use': 'That email already has an account. Try signing in.',
+        'auth/weak-password': 'Choose a stronger password with at least 6 characters.'
+      };
+      setErrors((current) => ({ ...current, email: messages[error.code] || error.message }));
+      push('We could not submit your application. Check the form and try again.', 'error');
+    }
   };
 
   return (

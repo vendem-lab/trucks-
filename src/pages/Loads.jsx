@@ -86,6 +86,10 @@ export default function Loads() {
       push('Your membership needs to be active before you can claim a load.', 'error');
       return;
     }
+    if (!import.meta.env.VITE_USE_DEMO_DATA) {
+      push('Load claims will be enabled after the trusted server workflow is deployed.', 'error');
+      return;
+    }
     const result = claimLoad(load.id, member);
     if (result) {
       push(`Load ${load.reference} claimed. The shipper contact is now visible.`, 'success');

@@ -1,67 +1,125 @@
-import { DEMO_STAFF } from '../config.js';
-import { getState } from './store.js';
+import {
+  createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  updateProfile
+} from 'firebase/auth';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { firebaseAuth, firebaseDb } from './firebase.js';
+import { createMemberRecord } from './store.js';
 
-const SESSION_KEY = 'haulway_union_session';
-
-export function readSession() {
-  try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const session = JSON.parse(raw);
-    if (!session || !session.email || !session.role) return null;
-    return session;
-  } catch (error) {
-    return null;
-  }
+export async function approveApplication(applicationId, uid) {
+  const applicationRef = doc(firebaseDb, 'applications', applicationId);
+  const application = await getDoc(applicationRef);
+  if (!application.exists()) throw new Error('Application not found.');
+  const { password: _password, ...member } = application.data();
+  const { id: _id, ...memberData } = member;
+  await setDoc(doc(firebaseDb, 'members', uid), { ...memberData, status: 'active', approvedAt: new Date().toISOString() });
+  await setDoc(doc(firebaseDb, 'users', uid), { name: member.name, email: member.email, role: 'member', memberId: uid, memberStatus: 'active', tier: member.tier }, { merge: true });
+  await updateDoc(applicationRef, { status: 'approved', approvedAt: new Date().toISOString() });
 }
 
-export function signIn(email, password) {
-  const value = String(email || '').trim().toLowerCase();
+export function subscribeToAuth(callback) {
+  return onAuthStateChanged(firebaseAuth, async (user) => {
+    if (!user) {
+      callback(null);
+      return;
+    }
 
-  if (value === DEMO_STAFF.email && password === DEMO_STAFF.password) {
-    const session = {
-      email: DEMO_STAFF.email,
-      name: DEMO_STAFF.name,
-      role: 'staff',
-      staffRole: DEMO_STAFF.role,
-      signedInAt: new Date().toISOString()
-    };
-    save(session);
-    return { ok: true, session };
+    try {
+      const profile = await getDoc(doc(firebaseDb, 'users', user.uid));
+      if (!profile.exists()) {
+        callback({ uid: user.uid, email: user.email || '', name: user.displayName || 'Member', role: 'member', memberId: user.uid, memberStatus: 'pending', tier: 'independent' });
+        return;
+      }
+      const data = profile.exists() ? profile.data() : {};
+      callback({
+        uid: user.uid,
+        email: user.email || '',
+        name: data.name || user.displayName || user.email || 'Member',
+        role: data.role === 'staff' ? 'staff' : 'member',
+        memberId: data.memberId || user.uid,
+        memberStatus: data.memberStatus || 'pending',
+        tier: data.tier || 'independent',
+        staffRole: data.staffRole || ''
+      });
+    } catch (error) {
+      console.error('Could not load account profile.', error);
+      await firebaseSignOut(firebaseAuth);
+      callback(null);
+    }
+  });
+}
+
+export async function signIn(email, password) {
+  const credential = await signInWithEmailAndPassword(
+    firebaseAuth,
+    String(email || '').trim().toLowerCase(),
+    password
+  );
+  const profile = await getDoc(doc(firebaseDb, 'users', credential.user.uid));
+  if (!profile.exists()) {
+    await firebaseSignOut(firebaseAuth);
+    throw new Error('Your account profile is missing. Contact the union office.');
   }
-
-  const member = getState().members.find((entry) => entry.email.toLowerCase() === value);
-  if (!member || member.password !== password) {
-    return {
-      ok: false,
-      error: 'That email and password combination is not recognised. Check your details or call the member line.'
-    };
+  const data = profile.data();
+  if (data.memberStatus === 'pending') {
+    await firebaseSignOut(firebaseAuth);
+    throw new Error('Your application is awaiting office approval.');
   }
-
-  const session = {
-    email: member.email,
-    name: member.name,
-    role: 'member',
-    memberId: member.id,
-    memberStatus: member.status,
-    signedInAt: new Date().toISOString()
+  return {
+    uid: credential.user.uid,
+    email: credential.user.email || '',
+    name: data.name || credential.user.displayName || 'Member',
+    role: data.role === 'staff' ? 'staff' : 'member',
+    memberId: data.memberId || credential.user.uid,
+    memberStatus: data.memberStatus || 'pending',
+    tier: data.tier || 'independent',
+    staffRole: data.staffRole || ''
   };
-  save(session);
-  return { ok: true, session };
 }
 
-function save(session) {
+export async function createMemberAccount(payload) {
+  const email = String(payload.email || '').trim().toLowerCase();
+  const credential = await createUserWithEmailAndPassword(firebaseAuth, email, payload.password);
+  await updateProfile(credential.user, { displayName: String(payload.name || '').trim() });
+  const accountUid = credential.user.uid;
+
+  const member = {
+    ...payload,
+    id: accountUid,
+    uid: accountUid,
+    email,
+    name: String(payload.name || '').trim(),
+    password: undefined,
+    role: 'member',
+    status: 'pending',
+    memberNumber: `HU-${accountUid.slice(0, 8).toUpperCase()}`,
+    createdAt: new Date().toISOString()
+  };
+  delete member.password;
+
   try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+    await setDoc(doc(firebaseDb, 'users', accountUid), {
+      uid: accountUid,
+      email,
+      name: member.name,
+      role: 'member',
+      memberId: accountUid,
+      memberStatus: 'pending',
+      tier: member.tier,
+      createdAt: member.createdAt
+    });
+    const { password: _password, ...application } = member;
+    const result = await createMemberRecord(application);
+    return { ...member, applicationId: result.applicationId };
   } catch (error) {
-    console.warn('The member session could not be saved.', error);
+    await firebaseSignOut(firebaseAuth);
+    throw error;
   }
 }
 
 export function signOut() {
-  try {
-    localStorage.removeItem(SESSION_KEY);
-  } catch (error) {
-    /* ignore */
-  }
+  return firebaseSignOut(firebaseAuth);
 }

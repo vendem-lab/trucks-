@@ -3,7 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo.jsx';
 import Field from '../components/Field.jsx';
 import Icon from '../components/Icon.jsx';
-import { BRAND, DEMO_MEMBER, DEMO_STAFF } from '../config.js';
+import { BRAND } from '../config.js';
 import { useAuth } from '../context/AuthContext.jsx';
 import { useToast } from '../context/ToastContext.jsx';
 
@@ -34,9 +34,9 @@ export default function Login() {
     setError('');
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
-    const result = login(form.email, form.password);
+    const result = await login(form.email, form.password);
     if (!result.ok) {
       setError(result.error);
       return;
@@ -51,11 +51,6 @@ export default function Login() {
           : '/portal';
     push(`Welcome back, ${result.session.name}.`, 'success');
     navigate(destination, { replace: true });
-  };
-
-  const fillDemo = (account) => {
-    setForm({ email: account.email, password: account.password });
-    setError('');
   };
 
   return (
@@ -133,36 +128,6 @@ export default function Login() {
               Sign in <Icon name="arrowRight" size={16} />
             </button>
           </form>
-
-          <div className="demo-box">
-            <div className="demo-box-head">
-              <span>
-                <Icon name="lock" size={15} /> Demo accounts
-              </span>
-            </div>
-            <div className="demo-choice-grid">
-              <button type="button" className="demo-choice" onClick={() => fillDemo(DEMO_MEMBER)}>
-                <span className="demo-choice-icon"><Icon name="idCard" size={17} /></span>
-                <div>
-                  <strong>Member</strong>
-                  <span>{DEMO_MEMBER.email}</span>
-                  <span>{DEMO_MEMBER.password}</span>
-                </div>
-              </button>
-              <button type="button" className="demo-choice" onClick={() => fillDemo(DEMO_STAFF)}>
-                <span className="demo-choice-icon"><Icon name="briefcase" size={17} /></span>
-                <div>
-                  <strong>Union staff</strong>
-                  <span>{DEMO_STAFF.email}</span>
-                  <span>{DEMO_STAFF.password}</span>
-                </div>
-              </button>
-            </div>
-            <p>
-              Tap an account to fill the form. This is a front-end demo — sign-in is not connected to
-              a real identity provider.
-            </p>
-          </div>
 
           <p className="auth-join">
             Not a member yet? <Link to="/membership">Apply to join the union</Link>

@@ -19,6 +19,7 @@ import {
   updateMember,
   useStore
 } from '../../lib/store.js';
+import { approveApplication } from '../../lib/auth.js';
 import { duesSummary, formatPeriod } from '../../lib/union.js';
 import { formatCurrency, formatDate, isValidEmail, isValidPhone } from '../../lib/format.js';
 import { useToast } from '../../context/ToastContext.jsx';
@@ -95,6 +96,7 @@ export default function Members() {
   const detailAlerts = detail
     ? state.alerts.filter((alert) => alert.memberId === detail.id)
     : [];
+  const applications = state.applications || [];
 
   const update = (key) => (event) => {
     setForm((current) => ({ ...current, [key]: event.target.value }));
@@ -121,7 +123,7 @@ export default function Members() {
     setDetailId(null);
   };
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
     const next = {};
     if (!form.name.trim()) next.name = 'Name is required.';
@@ -139,15 +141,24 @@ export default function Members() {
     }
 
     if (editingId) {
+      if (!import.meta.env.VITE_USE_DEMO_DATA) {
+        push('Member profile editing is disabled in live mode until field-level rules are configured.', 'error');
+        return;
+      }
       const patch = { ...form };
       if (!patch.password) delete patch.password;
       delete patch.status;
       updateMember(editingId, patch);
       push('Member record updated.', 'success');
     } else {
-      const created = addMember(form);
-      if (form.status === 'active') setMemberStatus(created.id, 'active');
-      push(`Member ${created.memberNumber} added.`, 'success');
+      if (!import.meta.env.VITE_USE_DEMO_DATA) {
+        push('In live mode, new accounts must be created through the public application form.', 'error');
+        return;
+      } else {
+        const created = addMember(form);
+        if (form.status === 'active') setMemberStatus(created.id, 'active');
+        push(`Member ${created.memberNumber} added.`, 'success');
+      }
     }
     setFormOpen(false);
   };
@@ -158,6 +169,17 @@ export default function Members() {
     push(`${deleting.name} removed from the register.`, 'success');
     setDeleteId(null);
     if (detailId === deleting.id) setDetailId(null);
+  };
+
+  const handleApproveApplication = async (application) => {
+    try {
+      await approveApplication(application.id, application.uid);
+      const approvedMember = { ...application, id: application.uid, status: 'active' };
+      state.members = [...state.members, approvedMember];
+      push(`Application for ${application.name} approved.`, 'success');
+    } catch (error) {
+      push(error.message || 'Could not approve application.', 'error');
+    }
   };
 
   return (
@@ -198,6 +220,18 @@ export default function Members() {
           <Icon name="plus" size={16} /> Add member
         </button>
       </div>
+
+      {applications.length > 0 && <section className="card" aria-label="Pending membership applications">
+        <div className="card-head"><div><h2>New applications</h2><p>{applications.length} awaiting staff review</p></div></div>
+        <div className="table-wrap"><table className="data-table admin-table"><thead><tr><th>Applicant</th><th>Contact</th><th>Tier</th><th>Vehicle</th><th>Action</th></tr></thead>
+          <tbody>{applications.filter((application) => application.status !== 'approved').map((application) => <tr key={application.id}>
+            <td><strong>{application.name}</strong><span className="table-sub">{application.region}, {application.city}</span></td>
+            <td>{application.email}<span className="table-sub">{application.phone}</span></td>
+            <td>{TIER_BY_ID[application.tier]?.name || application.tier}</td>
+            <td>{application.vehicleType}<span className="table-sub">{application.vehiclePlate}</span></td>
+            <td><button type="button" className="btn btn-primary btn-sm" onClick={() => handleApproveApplication(application)}><Icon name="check" size={14} /> Approve</button></td>
+          </tr>)}</tbody></table></div>
+      </section>}
 
       <div className="admin-count">
         <span>{filtered.length} of {state.members.length} members</span>
@@ -413,8 +447,12 @@ export default function Members() {
                   type="button"
                   className="btn btn-primary btn-sm"
                   onClick={() => {
-                    setMemberStatus(detail.id, 'active');
-                    push(`${detail.name} is now active.`, 'success');
+                    if (import.meta.env.VITE_USE_DEMO_DATA) {
+                      setMemberStatus(detail.id, 'active');
+                      push(`${detail.name} is now active.`, 'success');
+                    } else {
+                      push('Status changes for existing accounts require the admin function deployment.', 'error');
+                    }
                   }}
                 >
                   <Icon name="check" size={14} /> Approve / reactivate
@@ -425,8 +463,12 @@ export default function Members() {
                   type="button"
                   className="btn btn-outline btn-sm"
                   onClick={() => {
-                    setMemberStatus(detail.id, 'suspended');
-                    push(`${detail.name} suspended.`, 'success');
+                    if (import.meta.env.VITE_USE_DEMO_DATA) {
+                      setMemberStatus(detail.id, 'suspended');
+                      push(`${detail.name} suspended.`, 'success');
+                    } else {
+                      push('Status changes for existing accounts require the admin function deployment.', 'error');
+                    }
                   }}
                 >
                   Suspend
