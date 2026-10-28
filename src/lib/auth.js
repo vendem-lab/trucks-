@@ -8,11 +8,10 @@ import {
   updateProfile,
   updatePassword as firebaseUpdatePassword
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, runTransaction, setDoc } from 'firebase/firestore';
 import { DEMO_STAFF } from '../config.js';
 import { firebaseAuth, firebaseDb } from './firebase.js';
 import { addMember, createMemberRecord, getState, updateMember } from './store.js';
-import { approveMemberApplicationSecurely } from './callables.js';
 
 const DEMO_MODE = import.meta.env.VITE_USE_DEMO_DATA === 'true';
 const SESSION_KEY = 'haulway_union_session';
@@ -64,7 +63,38 @@ function clearDemoSession() {
 }
 
 export async function approveApplication(applicationId) {
-  return approveMemberApplicationSecurely(applicationId);
+  if (DEMO_MODE) throw new Error('Membership application approval is only available in Firebase mode.');
+  if (!applicationId) throw new Error('Application id is required.');
+
+  const applicationRef = doc(firebaseDb, 'applications', applicationId);
+  return runTransaction(firebaseDb, async (transaction) => {
+    const applicationSnapshot = await transaction.get(applicationRef);
+    if (!applicationSnapshot.exists()) throw new Error('Application not found.');
+
+    const application = applicationSnapshot.data();
+    const uid = String(application.uid || '');
+    if (!uid) throw new Error('This application is missing its account id.');
+
+    const memberRef = doc(firebaseDb, 'members', uid);
+    const userRef = doc(firebaseDb, 'users', uid);
+    const [memberSnapshot, userSnapshot] = await Promise.all([
+      transaction.get(memberRef),
+      transaction.get(userRef)
+    ]);
+
+    if (application.status === 'approved' && memberSnapshot.exists() && userSnapshot.data()?.memberStatus === 'active') {
+      return { ok: true, alreadyApproved: true };
+    }
+    if (application.status !== 'pending') throw new Error('This application is no longer pending.');
+    if (memberSnapshot.exists()) throw new Error('A member record already exists for this applicant.');
+    if (!userSnapshot.exists()) throw new Error('The applicant account profile is missing.');
+
+    const approvedAt = new Date().toISOString();
+    transaction.set(memberRef, { ...application, status: 'active', approvedAt });
+    transaction.update(userRef, { memberStatus: 'active' });
+    transaction.update(applicationRef, { status: 'approved', approvedAt });
+    return { ok: true };
+  });
 }
 
 export function subscribeToAuth(callback) {

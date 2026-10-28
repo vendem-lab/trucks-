@@ -23,7 +23,9 @@ service cloud.firestore {
     }
 
     match /members/{uid} {
-      allow create: if false;
+      allow create: if isStaff()
+        && request.resource.data.uid == uid
+        && request.resource.data.status == 'active';
       allow list: if isStaff() || (signedIn() && resource.data.uid == request.auth.uid);
       allow get: if isStaff() || isSelf(uid);
       allow update: if false;
