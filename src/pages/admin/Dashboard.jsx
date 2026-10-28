@@ -14,6 +14,8 @@ export default function Dashboard() {
   const stats = useMemo(() => {
     const activeMembers = state.members.filter((member) => member.status === 'active');
     const pendingMembers = state.members.filter((member) => member.status === 'pending');
+    const pendingApplications = (state.applications || []).filter((application) => application.status === 'pending');
+    const pendingCount = pendingMembers.length + pendingApplications.length;
     const openLoads = state.loads.filter((load) => load.status === 'open');
     const unread = state.messages.filter((message) => !message.read);
     const period = currentPeriod();
@@ -24,7 +26,7 @@ export default function Dashboard() {
       .filter((invoice) => ['due', 'overdue'].includes(invoice.status))
       .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
     const overdue = state.dues.filter((invoice) => invoice.status === 'overdue');
-    return { activeMembers, pendingMembers, openLoads, unread, collected, outstanding, overdue, period };
+    return { activeMembers, pendingMembers, pendingApplications, pendingCount, openLoads, unread, collected, outstanding, overdue, period };
   }, [state]);
 
   const months = useMemo(() => {
@@ -91,8 +93,8 @@ export default function Dashboard() {
         <StatCard
           icon="idCard"
           label="Pending applications"
-          value={stats.pendingMembers.length}
-          hint={stats.pendingMembers.length ? 'Waiting for review' : 'Nothing waiting'}
+          value={stats.pendingCount}
+          hint={stats.pendingCount ? 'Waiting for review' : 'Nothing waiting'}
           tone="amber"
         />
         <StatCard

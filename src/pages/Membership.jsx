@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHero from '../components/PageHero.jsx';
 import Field from '../components/Field.jsx';
@@ -13,10 +13,10 @@ import {
   TIER_BY_ID,
   TRAILER_TYPES
 } from '../config.js';
-import { createMemberAccount } from '../lib/auth.js';
-import { getMemberByEmail } from '../lib/store.js';
+import { createMemberAccount, submitMemberApplication } from '../lib/auth.js';
+import { getMemberByEmail, isDemoMode } from '../lib/store.js';
 import { isValidEmail, isValidPhone } from '../lib/format.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/authContext.js';
 import { useToast } from '../context/ToastContext.jsx';
 
 const EMPTY = {
@@ -56,14 +56,29 @@ const JOIN_STEPS = [
 export default function Membership() {
   const { session } = useAuth();
   const { push } = useToast();
-  const [form, setForm] = useState(EMPTY);
+  const applyingWithAccount = Boolean(session?.profileMissing);
+  const [form, setForm] = useState(() => ({
+    ...EMPTY,
+    name: applyingWithAccount ? session?.name || '' : '',
+    email: applyingWithAccount ? session?.email || '' : ''
+  }));
   const [errors, setErrors] = useState({});
   const [created, setCreated] = useState(null);
 
   const member =
-    session?.role === 'member'
+    session?.role === 'member' && !session.profileMissing
       ? { ...session, tier: session.tier }
       : null;
+  const isStaff = session?.role === 'staff' && !session.profileMissing;
+
+  useEffect(() => {
+    if (!applyingWithAccount) return;
+    setForm((current) => ({
+      ...current,
+      name: current.name || session?.name || '',
+      email: session?.email || current.email
+    }));
+  }, [applyingWithAccount, session?.name, session?.email]);
 
   const update = (key) => (event) => {
     setForm((current) => ({ ...current, [key]: event.target.value }));
@@ -85,9 +100,9 @@ export default function Membership() {
     const next = {};
     if (!form.name.trim()) next.name = 'Enter your full name.';
     if (!isValidEmail(form.email)) next.email = 'Enter a valid email address.';
-    if (getMemberByEmail(form.email)) next.email = 'That email already has a member record.';
+    if (!applyingWithAccount && getMemberByEmail(form.email)) next.email = 'That email already has a member record.';
     if (!isValidPhone(form.phone)) next.phone = 'Enter a phone number we can reach you on.';
-    if (form.password.length < 6) next.password = 'Use at least 6 characters.';
+    if (!applyingWithAccount && form.password.length < 6) next.password = 'Use at least 6 characters.';
     if (!form.city.trim()) next.city = 'Enter your city or town.';
     if (!form.vehiclePlate.trim()) next.vehiclePlate = 'Enter your vehicle registration.';
     if (!form.licenseNumber.trim()) next.licenseNumber = 'Enter your licence number.';
@@ -100,7 +115,9 @@ export default function Membership() {
     }
 
     try {
-      const member = await createMemberAccount(form);
+      const member = applyingWithAccount
+        ? await submitMemberApplication(form)
+        : await createMemberAccount(form);
       setCreated(member);
       setForm(EMPTY);
       push('Application received. Your account is pending office approval.', 'success');
@@ -228,6 +245,20 @@ export default function Membership() {
                   <Link to="/portal/dues" className="btn btn-outline">View my dues</Link>
                 </div>
               </div>
+            ) : isStaff ? (
+              <div className="card join-signed-in">
+                <span className="empty-icon"><Icon name="shield" size={26} /></span>
+                <h2>You are signed in as union staff</h2>
+                <p>
+                  Staff accounts manage the register from the admin workspace. Sign out first if you
+                  need to submit a membership application for a driver.
+                </p>
+                <div className="join-signed-in-actions">
+                  <Link to="/admin" className="btn btn-primary">
+                    Open the admin workspace <Icon name="arrowRight" size={16} />
+                  </Link>
+                </div>
+              </div>
             ) : created ? (
               <div className="card application-success">
                 <span className="quote-success-icon">
@@ -247,7 +278,7 @@ export default function Membership() {
                 </dl>
                 <div className="application-success-actions">
                   <Link to="/login" className="btn btn-primary">
-                    Sign in to your portal <Icon name="arrowRight" size={16} />
+                    Sign in after approval <Icon name="arrowRight" size={16} />
                   </Link>
                   <Link to="/loads" className="btn btn-outline">Browse the load board</Link>
                 </div>
@@ -267,6 +298,16 @@ export default function Membership() {
                   <span className="card-chip">Ghana</span>
                 </div>
 
+                {applyingWithAccount && (
+                  <div className="inline-note inline-note-info">
+                    <Icon name="checkCircle" size={16} />
+                    <span>
+                      Your Google account is verified. Finish this application and the office will
+                      review it before your portal opens.
+                    </span>
+                  </div>
+                )}
+
                 <fieldset className="form-section">
                   <legend><span className="form-step">1</span> About you</legend>
                   <div className="form-grid">
@@ -279,7 +320,13 @@ export default function Membership() {
                         autoComplete="name"
                       />
                     </Field>
-                    <Field label="Email" htmlFor="join-email" required error={errors.email}>
+                    <Field
+                      label="Email"
+                      htmlFor="join-email"
+                      required
+                      error={errors.email}
+                      hint={applyingWithAccount ? 'Linked to your Google account.' : ''}
+                    >
                       <input
                         id="join-email"
                         type="email"
@@ -287,6 +334,7 @@ export default function Membership() {
                         onChange={update('email')}
                         placeholder="you@example.com"
                         autoComplete="email"
+                        readOnly={applyingWithAccount}
                       />
                     </Field>
                     <Field label="Phone" htmlFor="join-phone" required error={errors.phone}>
@@ -299,22 +347,24 @@ export default function Membership() {
                         autoComplete="tel"
                       />
                     </Field>
-                    <Field
-                      label="Create a password"
-                      htmlFor="join-password"
-                      required
-                      error={errors.password}
-                      hint="You will use this to sign in to the member portal."
-                    >
-                      <input
-                        id="join-password"
-                        type="password"
-                        value={form.password}
-                        onChange={update('password')}
-                        placeholder="At least 6 characters"
-                        autoComplete="new-password"
-                      />
-                    </Field>
+                    {!applyingWithAccount && (
+                      <Field
+                        label="Create a password"
+                        htmlFor="join-password"
+                        required
+                        error={errors.password}
+                        hint="You will use this to sign in to the member portal."
+                      >
+                        <input
+                          id="join-password"
+                          type="password"
+                          value={form.password}
+                          onChange={update('password')}
+                          placeholder="At least 6 characters"
+                          autoComplete="new-password"
+                        />
+                      </Field>
+                    )}
                   </div>
                 </fieldset>
 
@@ -431,8 +481,10 @@ export default function Membership() {
                   Submit application <Icon name="arrowRight" size={17} />
                 </button>
                 <p className="join-terms">
-                  By applying you agree to the union’s member handbook and dues schedule. This demo
-                  stores your details in this browser only.
+                  By applying you agree to the union’s member handbook and dues schedule.{' '}
+                  {isDemoMode()
+                    ? 'This demo stores your details in this browser only.'
+                    : 'Your details are sent securely to the union office for review.'}
                 </p>
               </form>
             )}

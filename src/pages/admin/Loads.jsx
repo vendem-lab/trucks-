@@ -129,7 +129,7 @@ export default function LoadsAdmin() {
     });
   };
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
     const next = {};
     if (!form.title.trim()) next.title = 'Give the load a title.';
@@ -148,19 +148,29 @@ export default function LoadsAdmin() {
       return;
     }
 
-    if (editingId) {
-      updateLoad(editingId, form);
-      push('Load updated.', 'success');
-    } else {
-      const load = addLoad(form);
-      push(`Load ${load.reference} posted.`, 'success');
+    try {
+      if (editingId) {
+        await updateLoad(editingId, form);
+        push('Load updated.', 'success');
+      } else {
+        const load = addLoad(form);
+        push(`Load ${load.reference} posted.`, 'success');
+      }
+    } catch (error) {
+      push(error.message || 'Could not save the load.', 'error');
+      return;
     }
     setFormOpen(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleting) return;
-    deleteLoad(deleting.id);
+    try {
+      await deleteLoad(deleting.id);
+    } catch (error) {
+      push(error.message || 'Could not delete the load.', 'error');
+      return;
+    }
     push(`Load ${deleting.reference} deleted.`, 'success');
     setDeleteId(null);
     if (detailId === deleting.id) setDetailId(null);
@@ -403,9 +413,13 @@ export default function LoadsAdmin() {
                 <button
                   type="button"
                   className="btn btn-outline"
-                  onClick={() => {
-                    reopenLoad(detail.id);
-                    push(`${detail.reference} is open again.`, 'success');
+                  onClick={async () => {
+                    try {
+                      await reopenLoad(detail.id);
+                      push(`${detail.reference} is open again.`, 'success');
+                    } catch (error) {
+                      push(error.message || 'Could not reopen the load.', 'error');
+                    }
                   }}
                 >
                   <Icon name="refresh" size={15} /> Reopen
@@ -466,7 +480,7 @@ export default function LoadsAdmin() {
         }
       >
         <p className="confirm-copy">
-          This removes the posting from the load board and from this browser. This cannot be undone.
+          This removes the posting from the load board. This cannot be undone.
         </p>
       </Modal>
     </div>

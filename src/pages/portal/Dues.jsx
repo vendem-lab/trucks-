@@ -4,7 +4,7 @@ import StatusBadge from '../../components/StatusBadge.jsx';
 import StatCard from '../../components/StatCard.jsx';
 import Modal from '../../components/Modal.jsx';
 import { PAYMENT_METHODS } from '../../config.js';
-import { useAuth } from '../../context/AuthContext.jsx';
+import { useAuth } from '../../context/authContext.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { markDuesPaid, useStore } from '../../lib/store.js';
 import { duesSummary, formatPeriod } from '../../lib/union.js';
@@ -35,9 +35,14 @@ export default function Dues() {
 
   if (!member) return null;
 
-  const handlePay = () => {
+  const handlePay = async () => {
     if (!payTarget) return;
-    markDuesPaid(payTarget.id, method);
+    try {
+      await markDuesPaid(payTarget.id, method);
+    } catch (error) {
+      push(error.message || 'Could not record the payment.', 'error');
+      return;
+    }
     push(
       `Payment of ${formatCurrency(payTarget.amount)} recorded for ${formatPeriod(payTarget.period)}.`,
       'success'
@@ -256,8 +261,8 @@ export default function Dues() {
         <div className="dues-method-note">
           <Icon name="smartphone" size={16} />
           <span>
-            Demo payments are recorded instantly. In production, mobile money and bank payments would
-            be confirmed by the payment provider before the invoice is marked paid.
+            Payments are recorded instantly for the union office. No money moves through this site and
+            no payment details are collected.
           </span>
         </div>
       </section>
@@ -309,7 +314,8 @@ export default function Dues() {
               ))}
             </div>
             <p className="dues-pay-note">
-              This is a front-end demo. No money moves and no payment details are collected.
+              This records a payment for the union office. No money moves through this site and no
+              payment details are collected.
             </p>
           </div>
         )}

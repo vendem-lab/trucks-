@@ -14,3 +14,6 @@ export const approveMemberApplicationSecurely = (applicationId) => call('approve
 export const createJobAlertSecurely = (alert) => call('createJobAlert', alert);
 export const updateJobAlertSecurely = (alertId, patch) => call('updateJobAlert', { alertId, patch });
 export const deleteJobAlertSecurely = (alertId) => call('deleteJobAlert', { alertId });
+export const payDuesSecurely = (duesId, method) => call('payDues', { duesId, method });
+export const deleteEventSecurely = (eventId) => call('deleteEvent', { eventId });
+export const deleteEventRegistrationSecurely = (registrationId) => call('deleteEventRegistration', { registrationId });

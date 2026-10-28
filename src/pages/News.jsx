@@ -60,6 +60,12 @@ export default function News() {
             </span>
           </div>
 
+          {state.loading ? (
+            <div className="card">
+              <p>Loading union updates…</p>
+            </div>
+          ) : (
+            <>
           {featured && (
             <Link to={`/news/${featured.id}`} className="news-feature">
               <div className="news-feature-art" aria-hidden="true">
@@ -103,6 +109,8 @@ export default function News() {
               <h3>Nothing in this category yet</h3>
               <p>Try another category, or check back after the next members’ meeting.</p>
             </div>
+          )}
+            </>
           )}
         </div>
       </section>

@@ -14,14 +14,23 @@ export default function NewsArticle() {
   const article = state.news.find((entry) => entry.id === id);
 
   if (!article) {
+    if (state.loading) {
+      return (
+        <section className="section">
+          <div className="container container-narrow">
+            <div className="card">Loading this update…</div>
+          </div>
+        </section>
+      );
+    }
     return (
       <section className="section">
         <div className="container container-narrow article-missing">
           <span className="empty-icon"><Icon name="megaphone" size={26} /></span>
           <h1>That update could not be found</h1>
           <p>
-            It may have been removed from this browser, or the link may be wrong. The latest union
-            updates are all on the news page.
+            It may have been removed, or the link may be wrong. The latest union updates are all on
+            the news page.
           </p>
           <Link to="/news" className="btn btn-primary">
             Back to news <Icon name="arrowRight" size={16} />

@@ -2,7 +2,18 @@ import { useSyncExternalStore } from 'react';
 import { buildSeed } from './seed.js';
 import { addDoc, collection, doc, onSnapshot, setDoc, deleteDoc, query, where } from 'firebase/firestore';
 import { firebaseDb } from './firebase.js';
-import { claimOpenLoad, createJobAlertSecurely, deleteJobAlertSecurely, registerForEventSecurely, setMemberStatusSecurely, updateJobAlertSecurely, updateOwnMemberProfile } from './callables.js';
+import {
+  claimOpenLoad,
+  createJobAlertSecurely,
+  deleteEventRegistrationSecurely,
+  deleteEventSecurely,
+  deleteJobAlertSecurely,
+  payDuesSecurely,
+  registerForEventSecurely,
+  setMemberStatusSecurely,
+  updateJobAlertSecurely,
+  updateOwnMemberProfile
+} from './callables.js';
 
 const STORAGE_KEY = 'haulway_union_v1';
 const listeners = new Set();
@@ -42,51 +53,80 @@ const COLLECTIONS = ['members', 'loads', 'dues', 'news', 'events', 'alerts'];
 export function startLiveStore(session = null) {
   if (DEMO_MODE) return () => {};
   if (liveUnsubscribe) liveUnsubscribe();
-  state = { ...state, members: [], dues: [], alerts: [], registrations: [], enquiries: [], messages: [], applications: [], settings: {}, loading: true };
-  const privateCollections = ['members', 'dues', 'alerts', 'applications'];
-  const allowedCollections = session?.role === 'staff'
-    ? COLLECTIONS
-    : ['loads', 'news', 'events', ...(session?.memberId ? ['members', 'dues', 'alerts', 'applications'] : [])];
-  const unsubs = allowedCollections.map((name) => {
+
+  state = {
+    ...state,
+    members: [],
+    dues: [],
+    alerts: [],
+    registrations: [],
+    enquiries: [],
+    messages: [],
+    applications: [],
+    settings: {},
+    loading: true,
+    error: ''
+  };
+
+  const isStaff = session?.role === 'staff';
+  const privateCollections = ['members', 'dues', 'alerts', 'applications', 'registrations'];
+  const allowedCollections = isStaff
+    ? [...COLLECTIONS, 'applications', 'registrations']
+    : ['loads', 'news', 'events', ...(session?.memberId ? ['members', 'dues', 'alerts', 'applications', 'registrations'] : [])];
+
+  const subscriptions = allowedCollections.map((name) => {
     const ref = collection(firebaseDb, name);
-    const source = privateCollections.includes(name) && session?.role !== 'staff'
-      ? query(ref, where(name === 'members' || name === 'applications' ? 'uid' : 'memberId', '==', session.memberId))
+    const selfField = name === 'members' || name === 'applications' ? 'uid' : 'memberId';
+    const source = privateCollections.includes(name) && !isStaff
+      ? query(ref, where(selfField, '==', session.uid))
       : ref;
-    return onSnapshot(source, (snapshot) => {
-    const records = snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() }));
-    const stateKey = name === 'enquiries' ? 'messages' : name;
-      state = { ...state, ...(name === 'counters' ? { counters: Object.fromEntries(records.map(({ id, value }) => [id, value])) } : { [stateKey]: records }), loading: false };
-    listeners.forEach((listener) => listener());
-  }, (error) => {
-    console.error(`Could not load ${name} from Firestore.`, error);
-    state = { ...state, loading: false, error: error.message };
-    listeners.forEach((listener) => listener());
-    });
+    return { name, source, stateKey: name, isDoc: false };
   });
-  if (session?.role === 'member') {
-    const applicationQuery = query(collection(firebaseDb, 'applications'), where('uid', '==', session.memberId));
-    unsubs.push(onSnapshot(applicationQuery, (snapshot) => {
-      state = { ...state, applications: snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })) };
-      listeners.forEach((listener) => listener());
-    }));
+
+  if (isStaff) {
+    subscriptions.push({ name: 'enquiries', source: collection(firebaseDb, 'enquiries'), stateKey: 'messages', isDoc: false });
+    subscriptions.push({ name: 'settings', source: doc(firebaseDb, 'settings', 'union'), stateKey: 'settings', isDoc: true });
+  } else {
+    state = { ...state, settings: { unionName: "Haulway Drivers' Union", duesGraceDays: 14 } };
   }
-  if (session?.role === 'staff') {
-    unsubs.push(onSnapshot(collection(firebaseDb, 'applications'), (snapshot) => {
-      state = { ...state, applications: snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })) };
+
+  let pending = subscriptions.length;
+  const markLoaded = () => {
+    pending -= 1;
+    if (pending <= 0) {
+      state = { ...state, loading: false };
       listeners.forEach((listener) => listener());
-    }));
-    unsubs.push(onSnapshot(collection(firebaseDb, 'enquiries'), (snapshot) => {
-      state = { ...state, messages: snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })) };
-      listeners.forEach((listener) => listener());
-    }));
-  }
-  if (session?.role === 'staff') {
-    unsubs.push(onSnapshot(doc(firebaseDb, 'settings', 'union'), (snapshot) => {
-      state = { ...state, settings: snapshot.exists() ? snapshot.data() : {}, loading: false };
-      listeners.forEach((listener) => listener());
-    }, (error) => console.error('Could not load union settings.', error)));
-  }
-  if (session?.role !== 'staff') state = { ...state, settings: { unionName: "Haulway Drivers' Union", duesGraceDays: 14 } };
+    }
+  };
+
+  const unsubs = subscriptions.map(({ name, source, stateKey, isDoc }) => {
+    let firstSnapshot = true;
+    return onSnapshot(
+      source,
+      (snapshot) => {
+        if (isDoc) {
+          state = { ...state, [stateKey]: snapshot.exists() ? snapshot.data() : {} };
+        } else {
+          state = { ...state, [stateKey]: snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })) };
+        }
+        if (firstSnapshot) {
+          firstSnapshot = false;
+          markLoaded();
+        }
+        listeners.forEach((listener) => listener());
+      },
+      (error) => {
+        console.error(`Could not load ${name} from Firestore.`, error);
+        state = { ...state, error: error.message };
+        if (firstSnapshot) {
+          firstSnapshot = false;
+          markLoaded();
+        }
+        listeners.forEach((listener) => listener());
+      }
+    );
+  });
+
   liveUnsubscribe = () => unsubs.forEach((unsubscribe) => unsubscribe());
   return liveUnsubscribe;
 }
@@ -130,25 +170,27 @@ function commit(mutator) {
 }
 
 function saveRecord(collectionName, record) {
-  if (!record?.id) return;
+  if (!record?.id) return Promise.resolve();
   if (DEMO_MODE) {
     persist(state);
-    return;
+    return Promise.resolve();
   }
   const { id, ...data } = record;
-  setDoc(doc(firebaseDb, collectionName, id), data).catch((error) =>
-    console.error(`Could not save ${collectionName} record.`, error)
-  );
+  return setDoc(doc(firebaseDb, collectionName, id), data).catch((error) => {
+    console.error(`Could not save ${collectionName} record.`, error);
+    throw error;
+  });
 }
 
 function removeRecord(collectionName, id) {
   if (DEMO_MODE) {
     persist(state);
-    return;
+    return Promise.resolve();
   }
-  deleteDoc(doc(firebaseDb, collectionName, id)).catch((error) =>
-    console.error(`Could not delete ${collectionName} record.`, error)
-  );
+  return deleteDoc(doc(firebaseDb, collectionName, id)).catch((error) => {
+    console.error(`Could not delete ${collectionName} record.`, error);
+    throw error;
+  });
 }
 
 function addRecord(collectionName, record) {
@@ -170,8 +212,9 @@ function updateRecord(collectionName, id, patch) {
     const index = draft[collectionName].findIndex((entry) => entry.id === id);
     if (index >= 0) draft[collectionName][index] = record;
     persist(draft);
-  } else saveRecord(collectionName, record);
-  return record;
+    return record;
+  }
+  return saveRecord(collectionName, record).then(() => record);
 }
 
 function getRecord(collectionName, id) {
@@ -237,8 +280,10 @@ export async function createMemberRecord(record) {
   if (DEMO_MODE) return addMember(record);
   const { password: _password, role: _role, id: _id, ...data } = record;
   data.uid = record.uid;
-  const result = await addDoc(collection(firebaseDb, 'applications'), data);
-  return { ...record, applicationId: result.id };
+  // The uid is the application id, so a retried submission overwrites the same
+  // pending application instead of creating a duplicate.
+  await setDoc(doc(firebaseDb, 'applications', record.uid), data, { merge: true });
+  return { ...record, applicationId: record.uid };
 }
 
 export function updateMember(id, patch) {
@@ -374,7 +419,7 @@ export function updateLoad(id, patch) {
 }
 
 export function deleteLoad(id) {
-  if (!DEMO_MODE) { removeRecord('loads', id); return true; }
+  if (!DEMO_MODE) return removeRecord('loads', id).then(() => true);
   return commit((draft) => {
     draft.loads = draft.loads.filter((entry) => entry.id !== id);
     return true;
@@ -402,7 +447,7 @@ export function claimLoad(loadId, member) {
 }
 
 export function reopenLoad(id) {
-  if (!DEMO_MODE) return Promise.reject(new Error('Reopening claimed loads requires a trusted admin workflow.'));
+  if (!DEMO_MODE) return updateLoad(id, { status: 'open', filledBy: '', filledById: '', filledAt: '' });
   return commit((draft) => {
     const load = draft.loads.find((entry) => entry.id === id);
     if (!load) return null;
@@ -454,7 +499,21 @@ export function addDues(payload) {
 }
 
 export function markDuesPaid(id, method = 'momo') {
-  if (!DEMO_MODE) return updateRecord('dues', id, { status: 'paid', paidAt: new Date().toISOString(), method, note: `Payment recorded by ${method}.` });
+  if (!DEMO_MODE) {
+    return payDuesSecurely(id, method).then(() => {
+      const invoice = {
+        ...getRecord('dues', id),
+        id,
+        status: 'paid',
+        paidAt: new Date().toISOString(),
+        method,
+        note: `Payment recorded by ${method}.`
+      };
+      state = { ...state, dues: state.dues.map((entry) => (entry.id === id ? invoice : entry)) };
+      listeners.forEach((listener) => listener());
+      return invoice;
+    });
+  }
   return commit((draft) => {
     const invoice = draft.dues.find((entry) => entry.id === id);
     if (!invoice) return null;
@@ -482,7 +541,7 @@ export function setDuesStatus(id, status) {
 }
 
 export function deleteDues(id) {
-  if (!DEMO_MODE) { removeRecord('dues', id); return true; }
+  if (!DEMO_MODE) return removeRecord('dues', id).then(() => true);
   return commit((draft) => {
     draft.dues = draft.dues.filter((entry) => entry.id !== id);
     return true;
@@ -552,7 +611,7 @@ export function updateNews(id, patch) {
 }
 
 export function deleteNews(id) {
-  if (!DEMO_MODE) { removeRecord('news', id); return true; }
+  if (!DEMO_MODE) return removeRecord('news', id).then(() => true);
   return commit((draft) => {
     draft.news = draft.news.filter((entry) => entry.id !== id);
     return true;
@@ -619,7 +678,17 @@ export function updateEvent(id, patch) {
 }
 
 export function deleteEvent(id) {
-  if (!DEMO_MODE) { removeRecord('events', id); return true; }
+  if (!DEMO_MODE) {
+    return deleteEventSecurely(id).then(() => {
+      state = {
+        ...state,
+        events: state.events.filter((entry) => entry.id !== id),
+        registrations: state.registrations.filter((entry) => entry.eventId !== id)
+      };
+      listeners.forEach((listener) => listener());
+      return true;
+    });
+  }
   return commit((draft) => {
     draft.events = draft.events.filter((entry) => entry.id !== id);
     draft.registrations = draft.registrations.filter((entry) => entry.eventId !== id);
@@ -660,7 +729,24 @@ export function getEventRegistrations(eventId) {
 }
 
 export function deleteRegistration(id) {
-  if (!DEMO_MODE) { removeRecord('registrations', id); return true; }
+  if (!DEMO_MODE) {
+    return deleteEventRegistrationSecurely(id).then(() => {
+      const registration = getRecord('registrations', id);
+      state = {
+        ...state,
+        registrations: state.registrations.filter((entry) => entry.id !== id),
+        events: registration
+          ? state.events.map((event) =>
+              event.id === registration.eventId
+                ? { ...event, registered: Math.max(0, (Number(event.registered) || 0) - 1) }
+                : event
+            )
+          : state.events
+      };
+      listeners.forEach((listener) => listener());
+      return true;
+    });
+  }
   return commit((draft) => {
     const registration = draft.registrations.find((entry) => entry.id === id);
     if (!registration) return false;
@@ -683,7 +769,16 @@ export function getUpcomingEvents() {
 
 export function addAlert(payload) {
   if (!DEMO_MODE) {
-    return createJobAlertSecurely(payload).then((alert) => {
+    // The callable accepts only the matching criteria; member details are
+    // attached server-side from the signed-in account.
+    const criteria = {
+      origin: String(payload.origin || ''),
+      destination: String(payload.destination || ''),
+      trailerType: payload.trailerType || 'Any',
+      minRate: Number(payload.minRate) || 0,
+      frequency: payload.frequency || 'instant'
+    };
+    return createJobAlertSecurely(criteria).then((alert) => {
       state = { ...state, alerts: [alert, ...state.alerts] };
       listeners.forEach((listener) => listener());
       return alert;
@@ -788,7 +883,7 @@ export function markMessageRead(id, read = true) {
 }
 
 export function deleteMessage(id) {
-  if (!DEMO_MODE) { removeRecord('enquiries', id); return true; }
+  if (!DEMO_MODE) return removeRecord('enquiries', id).then(() => true);
   return commit((draft) => {
     draft.messages = draft.messages.filter((entry) => entry.id !== id);
     return true;

@@ -3,7 +3,8 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import Logo from './Logo.jsx';
 import Icon from './Icon.jsx';
 import { BRAND } from '../config.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { isDemoMode } from '../lib/store.js';
+import { useAuth } from '../context/authContext.js';
 
 const NAV = [
   { to: '/', label: 'Home', end: true },
@@ -18,7 +19,7 @@ const NAV = [
 export default function SiteLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
-  const { session } = useAuth();
+  const { session, logout } = useAuth();
 
   useEffect(() => {
     setMenuOpen(false);
@@ -26,11 +27,13 @@ export default function SiteLayout() {
   }, [location.pathname]);
 
   const accountLink =
-    session?.role === 'staff'
-      ? { to: '/admin', label: 'Admin dashboard' }
-      : session?.role === 'member'
-        ? { to: '/portal', label: 'My portal' }
-        : { to: '/login', label: 'Member login' };
+    session?.profileMissing
+      ? { to: '/membership', label: 'Complete application' }
+      : session?.role === 'staff'
+        ? { to: '/admin', label: 'Admin dashboard' }
+        : session?.role === 'member'
+          ? { to: '/portal', label: 'My portal' }
+          : { to: '/login', label: 'Member login' };
 
   return (
     <div className="site">
@@ -52,6 +55,11 @@ export default function SiteLayout() {
               <Link to={accountLink.to} className="btn btn-outline btn-block">
                 {accountLink.label}
               </Link>
+              {session && (
+                <button type="button" className="btn btn-ghost btn-block" onClick={logout}>
+                  Sign out
+                </button>
+              )}
               <Link to="/membership" className="btn btn-primary btn-block">
                 Join the union
               </Link>
@@ -61,6 +69,11 @@ export default function SiteLayout() {
             <Link to={accountLink.to} className="nav-account-link">
               <Icon name={session ? 'user' : 'lock'} size={15} /> {accountLink.label}
             </Link>
+            {session && (
+              <button type="button" className="btn btn-ghost btn-sm" onClick={logout}>
+                Sign out
+              </button>
+            )}
             <Link to="/membership" className="btn btn-primary btn-sm">
               Join the union
               <Icon name="arrowRight" size={15} />
@@ -123,7 +136,9 @@ export default function SiteLayout() {
         </div>
         <div className="container footer-bottom">
           <span>© {new Date().getFullYear()} {BRAND.legalName}. All rights reserved.</span>
-          <span>Demo platform · data stays in your browser</span>
+          <span>
+            {isDemoMode() ? 'Demo platform · data stays in your browser' : 'Secure member platform'}
+          </span>
         </div>
       </footer>
     </div>

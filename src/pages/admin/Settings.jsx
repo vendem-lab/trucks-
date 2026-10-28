@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Modal from '../../components/Modal.jsx';
 import Field from '../../components/Field.jsx';
 import Icon from '../../components/Icon.jsx';
 import { BRAND, DEMO_MEMBER, DEMO_STAFF, TIERS } from '../../config.js';
 import { isDemoMode, resetDemoData, updateSettings, useStore } from '../../lib/store.js';
 import { isValidEmail, isValidPhone } from '../../lib/format.js';
-import { useAuth } from '../../context/AuthContext.jsx';
+import { useAuth } from '../../context/authContext.js';
 import { useToast } from '../../context/ToastContext.jsx';
 
 const FIELDS = [
@@ -35,6 +35,20 @@ export default function Settings() {
   const [errors, setErrors] = useState({});
   const [saved, setSaved] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
+
+  useEffect(() => {
+    setForm({
+      unionName: state.settings.unionName || '',
+      email: state.settings.email || '',
+      phone: state.settings.phone || '',
+      memberLine: state.settings.memberLine || '',
+      address: state.settings.address || '',
+      hours: state.settings.hours || '',
+      duesGraceDays: String(state.settings.duesGraceDays ?? 14),
+      notifyEnquiries: Boolean(state.settings.notifyEnquiries),
+      duesReminder: Boolean(state.settings.duesReminder)
+    });
+  }, [state.settings]);
 
   const update = (key) => (event) => {
     const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
@@ -76,14 +90,14 @@ export default function Settings() {
     }
   };
 
-  const handleReset = () => {
+  const handleReset = async () => {
     if (!isDemoMode()) {
       push('Demo reset is disabled in Firebase live mode.', 'error');
       setResetOpen(false);
       return;
     }
     resetDemoData();
-    logout();
+    await logout();
     setResetOpen(false);
     push('Demo data restored. Sign in again with a demo account.', 'success');
   };

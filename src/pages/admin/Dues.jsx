@@ -133,16 +133,26 @@ export default function DuesAdmin() {
     setFormOpen(false);
   };
 
-  const handlePay = () => {
+  const handlePay = async () => {
     if (!payTarget) return;
-    markDuesPaid(payTarget.id, payMethod);
+    try {
+      await markDuesPaid(payTarget.id, payMethod);
+    } catch (error) {
+      push(error.message || 'Could not record the payment.', 'error');
+      return;
+    }
     push(`${payTarget.reference} marked paid by ${PAYMENT_METHODS.find((entry) => entry.id === payMethod)?.label}.`, 'success');
     setPayTarget(null);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleting) return;
-    deleteDues(deleting.id);
+    try {
+      await deleteDues(deleting.id);
+    } catch (error) {
+      push(error.message || 'Could not delete the invoice.', 'error');
+      return;
+    }
     push(`Invoice ${deleting.reference} deleted.`, 'success');
     setDeleteId(null);
   };
@@ -278,9 +288,13 @@ export default function DuesAdmin() {
                             <button
                               type="button"
                               className="btn btn-ghost btn-sm"
-                              onClick={() => {
-                                setDuesStatus(invoice.id, 'waived');
-                                push(`${invoice.reference} waived.`, 'success');
+                              onClick={async () => {
+                                try {
+                                  await setDuesStatus(invoice.id, 'waived');
+                                  push(`${invoice.reference} waived.`, 'success');
+                                } catch (error) {
+                                  push(error.message || 'Could not waive the invoice.', 'error');
+                                }
                               }}
                             >
                               Waive

@@ -1790,6 +1790,13 @@
   padding-bottom: 24px;
 }
 
+.portal-head-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .portal-identity {
   display: flex;
   align-items: center;

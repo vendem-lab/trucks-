@@ -132,7 +132,7 @@ export default function EventsAdmin() {
     setDetailId(null);
   };
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
     const next = {};
     if (!form.title.trim()) next.title = 'Add an event title.';
@@ -157,27 +157,42 @@ export default function EventsAdmin() {
       fee: Number(form.fee) || 0
     };
 
-    if (editingId) {
-      updateEvent(editingId, payload);
-      push('Event updated.', 'success');
-    } else {
-      addEvent(payload);
-      push('Event published to the events page.', 'success');
+    try {
+      if (editingId) {
+        await updateEvent(editingId, payload);
+        push('Event updated.', 'success');
+      } else {
+        addEvent(payload);
+        push('Event published to the events page.', 'success');
+      }
+    } catch (error) {
+      push(error.message || 'Could not save the event.', 'error');
+      return;
     }
     setFormOpen(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleting) return;
-    deleteEvent(deleting.id);
+    try {
+      await deleteEvent(deleting.id);
+    } catch (error) {
+      push(error.message || 'Could not delete the event.', 'error');
+      return;
+    }
     push('Event deleted.', 'success');
     setDeleteId(null);
     if (detailId === deleting.id) setDetailId(null);
   };
 
-  const handleRemoveRegistration = () => {
+  const handleRemoveRegistration = async () => {
     if (!registrationToDelete) return;
-    deleteRegistration(registrationToDelete.id);
+    try {
+      await deleteRegistration(registrationToDelete.id);
+    } catch (error) {
+      push(error.message || 'Could not remove the registration.', 'error');
+      return;
+    }
     push(`${registrationToDelete.name} removed from the event.`, 'success');
     setRegistrationToDelete(null);
   };

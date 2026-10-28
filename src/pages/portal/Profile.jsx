@@ -4,9 +4,9 @@ import Field from '../../components/Field.jsx';
 import Icon from '../../components/Icon.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import { REGIONS, TIER_BY_ID, TRAILER_TYPES } from '../../config.js';
-import { useAuth } from '../../context/AuthContext.jsx';
+import { useAuth } from '../../context/authContext.js';
 import { useToast } from '../../context/ToastContext.jsx';
-import { updateMember, useStore } from '../../lib/store.js';
+import { isDemoMode, updateMember, useStore } from '../../lib/store.js';
 import { changeMemberPassword } from '../../lib/auth.js';
 import { formatDate, isValidPhone } from '../../lib/format.js';
 
@@ -65,10 +65,10 @@ export default function Profile() {
     }
 
     const patch = { ...form };
-    if (!patch.password) delete patch.password;
-    if (!import.meta.env.VITE_USE_DEMO_DATA) delete patch.password;
+    const nextPassword = patch.password;
+    delete patch.password;
     try {
-      if (patch.password && !import.meta.env.VITE_USE_DEMO_DATA) await changeMemberPassword(patch.password);
+      if (nextPassword) await changeMemberPassword(nextPassword);
       const saveResult = updateMember(member.id, patch);
       if (saveResult?.then) await saveResult;
     } catch (error) {
@@ -179,7 +179,11 @@ export default function Profile() {
           <button type="submit" className="btn btn-primary">
             <Icon name="check" size={16} /> Save changes
           </button>
-          <span>Changes are stored in this browser for the demo.</span>
+          <span>
+            {isDemoMode()
+              ? 'Changes are stored in this browser for the demo.'
+              : 'Changes are saved to your union member record.'}
+          </span>
         </div>
       </form>
 

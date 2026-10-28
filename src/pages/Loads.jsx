@@ -9,7 +9,7 @@ import StatusBadge from '../components/StatusBadge.jsx';
 import { ALERT_FREQUENCIES, TRAILER_TYPES } from '../config.js';
 import { addAlert, claimLoad, deleteAlert, updateAlert, useStore } from '../lib/store.js';
 import { countAlertMatches } from '../lib/union.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/authContext.js';
 import { useToast } from '../context/ToastContext.jsx';
 
 const STATUS_FILTERS = [
@@ -154,8 +154,8 @@ export default function Loads() {
             <span>posted this month</span>
           </div>
           <div className="board-stat">
-            <strong>{state.members.filter((entry) => entry.status === 'active').length}</strong>
-            <span>active members</span>
+            <strong>{new Set(state.loads.map((load) => load.shipper).filter(Boolean)).size}</strong>
+            <span>verified shippers</span>
           </div>
         </div>
       </PageHero>
@@ -238,7 +238,11 @@ export default function Loads() {
             </div>
           </div>
 
-          {filtered.length ? (
+          {state.loading ? (
+            <div className="card">
+              <p>Loading the load board…</p>
+            </div>
+          ) : filtered.length ? (
             <div className="load-grid">
               {filtered.map((load) => (
                 <LoadCard
@@ -441,16 +445,27 @@ export default function Loads() {
                           <button
                             type="button"
                             className="btn btn-ghost btn-sm"
-                            onClick={() => Promise.resolve(updateAlert(alert.id, { active: !alert.active })).catch((error) => push(error.message, 'error'))}
+                            onClick={async () => {
+                              try {
+                                await updateAlert(alert.id, { active: !alert.active });
+                                push(alert.active ? 'Alert paused.' : 'Alert resumed.', 'success');
+                              } catch (error) {
+                                push(error.message || 'Could not update the alert.', 'error');
+                              }
+                            }}
                           >
                             {alert.active ? 'Pause' : 'Resume'}
                           </button>
                           <button
                             type="button"
                             className="icon-btn icon-btn-danger"
-                            onClick={() => {
-                              Promise.resolve(deleteAlert(alert.id)).catch((error) => push(error.message, 'error'));
-                              push('Alert deleted.', 'success');
+                            onClick={async () => {
+                              try {
+                                await deleteAlert(alert.id);
+                                push('Alert deleted.', 'success');
+                              } catch (error) {
+                                push(error.message || 'Could not delete the alert.', 'error');
+                              }
                             }}
                             aria-label="Delete alert"
                           >

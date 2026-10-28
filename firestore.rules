@@ -34,8 +34,16 @@ service cloud.firestore {
         && request.resource.data.uid == request.auth.uid
         && request.resource.data.status == 'pending'
         && !request.resource.data.keys().hasAny(['password', 'role']);
+      // Applicants can correct or resubmit their own pending application.
+      allow update: if isStaff()
+        || (signedIn()
+          && resource.data.uid == request.auth.uid
+          && resource.data.status == 'pending'
+          && request.resource.data.uid == request.auth.uid
+          && request.resource.data.status == 'pending'
+          && !request.resource.data.keys().hasAny(['password', 'role']));
       allow read: if isStaff() || (signedIn() && resource.data.uid == request.auth.uid);
-      allow update, delete: if false;
+      allow delete: if false;
     }
     match /counters/{id} {
       allow read, write: if false;
@@ -43,8 +51,7 @@ service cloud.firestore {
 
     match /loads/{id} {
       allow read: if true;
-      allow create, delete: if isStaff();
-      allow update: if false;
+      allow create, update, delete: if isStaff();
     }
     match /news/{id} {
       allow read: if true;

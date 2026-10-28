@@ -90,6 +90,74 @@ export const registerForEvent = onCall(async (request) => {
   return { ok: true, registrationId };
 });
 
+export const payDues = onCall(async (request) => {
+  const auth = requireAuth(request);
+  const duesId = String(request.data?.duesId || '');
+  const method = String(request.data?.method || '');
+  if (!duesId) throw new HttpsError('invalid-argument', 'Dues invoice id is required.');
+  if (!['momo', 'bank', 'cash'].includes(method)) {
+    throw new HttpsError('invalid-argument', 'Choose a valid payment method.');
+  }
+
+  const invoiceRef = db.doc(`dues/${duesId}`);
+  const [invoice, profile] = await Promise.all([
+    invoiceRef.get(),
+    db.doc(`users/${auth.uid}`).get()
+  ]);
+  if (!invoice.exists) throw new HttpsError('not-found', 'Dues invoice not found.');
+
+  const isStaff = profile.data()?.role === 'staff';
+  if (!isStaff && invoice.data().memberId !== auth.uid) {
+    throw new HttpsError('permission-denied', 'You can only pay your own dues.');
+  }
+  if (invoice.data().status === 'paid') return { ok: true };
+  if (invoice.data().status === 'waived') {
+    throw new HttpsError('failed-precondition', 'This invoice has been waived.');
+  }
+
+  await invoiceRef.update({
+    status: 'paid',
+    paidAt: new Date().toISOString(),
+    method,
+    note: `Payment recorded by ${method}.`
+  });
+  return { ok: true };
+});
+
+export const deleteEventRegistration = onCall(async (request) => {
+  await requireStaff(request);
+  const registrationId = String(request.data?.registrationId || '');
+  if (!registrationId) throw new HttpsError('invalid-argument', 'Registration id is required.');
+
+  await db.runTransaction(async (transaction) => {
+    const registrationRef = db.doc(`registrations/${registrationId}`);
+    const registration = await transaction.get(registrationRef);
+    if (!registration.exists) throw new HttpsError('not-found', 'Registration not found.');
+    const eventRef = db.doc(`events/${registration.data().eventId}`);
+    const event = await transaction.get(eventRef);
+    transaction.delete(registrationRef);
+    if (event.exists) {
+      transaction.update(eventRef, {
+        registered: Math.max(0, (Number(event.data().registered) || 0) - 1)
+      });
+    }
+  });
+  return { ok: true };
+});
+
+export const deleteEvent = onCall(async (request) => {
+  await requireStaff(request);
+  const eventId = String(request.data?.eventId || '');
+  if (!eventId) throw new HttpsError('invalid-argument', 'Event id is required.');
+
+  const registrations = await db.collection('registrations').where('eventId', '==', eventId).get();
+  const batch = db.batch();
+  registrations.forEach((registration) => batch.delete(registration.ref));
+  batch.delete(db.doc(`events/${eventId}`));
+  await batch.commit();
+  return { ok: true };
+});
+
 export const setMemberStatus = onCall(async (request) => {
   await requireStaff(request);
   const memberId = String(request.data?.memberId || '');

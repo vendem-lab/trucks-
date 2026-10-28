@@ -15,6 +15,7 @@ import {
 import {
   addMember,
   deleteMember,
+  isDemoMode,
   setMemberStatus,
   updateMember,
   useStore
@@ -62,6 +63,7 @@ function toForm(member) {
 
 export default function Members() {
   const state = useStore();
+  const demo = isDemoMode();
   const { push } = useToast();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -97,6 +99,7 @@ export default function Members() {
     ? state.alerts.filter((alert) => alert.memberId === detail.id)
     : [];
   const applications = state.applications || [];
+  const pendingApplications = applications.filter((application) => application.status !== 'approved');
 
   const update = (key) => (event) => {
     setForm((current) => ({ ...current, [key]: event.target.value }));
@@ -144,14 +147,14 @@ export default function Members() {
       const patch = { ...form };
       if (!patch.password) delete patch.password;
       delete patch.status;
-      if (!import.meta.env.VITE_USE_DEMO_DATA) {
+      if (!demo) {
         push('Ask the member to update their profile. Staff can change status here.', 'error');
         return;
       }
       updateMember(editingId, patch);
       push('Member record updated.', 'success');
     } else {
-      if (!import.meta.env.VITE_USE_DEMO_DATA) {
+      if (!demo) {
         push('In live mode, new accounts must be created through the public application form.', 'error');
         return;
       } else {
@@ -178,7 +181,7 @@ export default function Members() {
 
   const handleApproveApplication = async (application) => {
     try {
-      await approveApplication(application.id, application.uid);
+      await approveApplication(application.id);
       push(`Application for ${application.name} approved.`, 'success');
     } catch (error) {
       push(error.message || 'Could not approve application.', 'error');
@@ -219,15 +222,17 @@ export default function Members() {
             ))}
           </select>
         </div>
-        <button type="button" className="btn btn-primary" onClick={openCreate}>
-          <Icon name="plus" size={16} /> Add member
-        </button>
+        {demo && (
+          <button type="button" className="btn btn-primary" onClick={openCreate}>
+            <Icon name="plus" size={16} /> Add member
+          </button>
+        )}
       </div>
 
-      {applications.length > 0 && <section className="card" aria-label="Pending membership applications">
-        <div className="card-head"><div><h2>New applications</h2><p>{applications.length} awaiting staff review</p></div></div>
+      {pendingApplications.length > 0 && <section className="card" aria-label="Pending membership applications">
+        <div className="card-head"><div><h2>New applications</h2><p>{pendingApplications.length} awaiting staff review</p></div></div>
         <div className="table-wrap"><table className="data-table admin-table"><thead><tr><th>Applicant</th><th>Contact</th><th>Tier</th><th>Vehicle</th><th>Action</th></tr></thead>
-          <tbody>{applications.filter((application) => application.status !== 'approved').map((application) => <tr key={application.id}>
+          <tbody>{pendingApplications.map((application) => <tr key={application.id}>
             <td><strong>{application.name}</strong><span className="table-sub">{application.region}, {application.city}</span></td>
             <td>{application.email}<span className="table-sub">{application.phone}</span></td>
             <td>{TIER_BY_ID[application.tier]?.name || application.tier}</td>
@@ -289,22 +294,26 @@ export default function Members() {
                         >
                           <Icon name="eye" size={16} />
                         </button>
-                        <button
-                          type="button"
-                          className="icon-btn"
-                          onClick={() => openEdit(member)}
-                          aria-label={`Edit ${member.name}`}
-                        >
-                          <Icon name="edit" size={16} />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-btn icon-btn-danger"
-                          onClick={() => setDeleteId(member.id)}
-                          aria-label={`Delete ${member.name}`}
-                        >
-                          <Icon name="trash" size={16} />
-                        </button>
+                        {demo && (
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            onClick={() => openEdit(member)}
+                            aria-label={`Edit ${member.name}`}
+                          >
+                            <Icon name="edit" size={16} />
+                          </button>
+                        )}
+                        {demo && (
+                          <button
+                            type="button"
+                            className="icon-btn icon-btn-danger"
+                            onClick={() => setDeleteId(member.id)}
+                            aria-label={`Delete ${member.name}`}
+                          >
+                            <Icon name="trash" size={16} />
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -318,9 +327,11 @@ export default function Members() {
             title="No members match"
             description="Adjust the search or filters, or add a member manually."
             action={
-              <button type="button" className="btn btn-primary" onClick={openCreate}>
-                <Icon name="plus" size={16} /> Add member
-              </button>
+              demo ? (
+                <button type="button" className="btn btn-primary" onClick={openCreate}>
+                  <Icon name="plus" size={16} /> Add member
+                </button>
+              ) : undefined
             }
           />
         )}
@@ -421,12 +432,16 @@ export default function Members() {
         footer={
           detail && (
             <>
-              <button type="button" className="btn btn-ghost" onClick={() => setDeleteId(detail.id)}>
-                <Icon name="trash" size={15} /> Delete
-              </button>
-              <button type="button" className="btn btn-outline" onClick={() => openEdit(detail)}>
-                <Icon name="edit" size={15} /> Edit details
-              </button>
+              {demo && (
+                <button type="button" className="btn btn-ghost" onClick={() => setDeleteId(detail.id)}>
+                  <Icon name="trash" size={15} /> Delete
+                </button>
+              )}
+              {demo && (
+                <button type="button" className="btn btn-outline" onClick={() => openEdit(detail)}>
+                  <Icon name="edit" size={15} /> Edit details
+                </button>
+              )}
             </>
           )
         }
@@ -545,8 +560,8 @@ export default function Members() {
         }
       >
         <p className="confirm-copy">
-          This removes the member, their dues invoices, alerts and event registrations from this
-          browser. This cannot be undone.
+          This removes the member, their dues invoices, alerts and event registrations. This cannot be
+          undone.
         </p>
       </Modal>
     </div>

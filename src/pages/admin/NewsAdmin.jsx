@@ -88,7 +88,7 @@ export default function NewsAdmin() {
     setFormOpen(true);
   };
 
-  const handleSave = (event) => {
+  const handleSave = async (event) => {
     event.preventDefault();
     const next = {};
     if (!form.title.trim()) next.title = 'Add a title.';
@@ -109,7 +109,12 @@ export default function NewsAdmin() {
     };
 
     if (editingId) {
-      updateNews(editingId, payload);
+      try {
+        await updateNews(editingId, payload);
+      } catch (error) {
+        push(error.message || 'Could not update the article.', 'error');
+        return;
+      }
       push('Article updated.', 'success');
     } else {
       addNews(payload);
@@ -118,9 +123,14 @@ export default function NewsAdmin() {
     setFormOpen(false);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleting) return;
-    deleteNews(deleting.id);
+    try {
+      await deleteNews(deleting.id);
+    } catch (error) {
+      push(error.message || 'Could not delete the article.', 'error');
+      return;
+    }
     push('Article deleted.', 'success');
     setDeleteId(null);
   };
@@ -300,7 +310,7 @@ export default function NewsAdmin() {
         }
       >
         <p className="confirm-copy">
-          This removes the article from the public site and from this browser. This cannot be undone.
+          This removes the article from the public site. This cannot be undone.
         </p>
       </Modal>
     </div>

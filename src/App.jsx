@@ -7,7 +7,7 @@ import { ToastProvider } from './context/ToastContext.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
 import { useEffect } from 'react';
 import { startLiveStore } from './lib/store.js';
-import { useAuth } from './context/AuthContext.jsx';
+import { useAuth } from './context/authContext.js';
 
 function LiveDataProvider({ children }) {
   const { session, authLoading } = useAuth();

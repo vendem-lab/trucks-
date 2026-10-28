@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Logo from './Logo.jsx';
 import Icon from './Icon.jsx';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/authContext.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { useStore } from '../lib/store.js';
 
@@ -25,7 +25,7 @@ const TITLES = {
   '/admin/news': { title: 'News', subtitle: 'Announcements and updates published to the site.' },
   '/admin/events': { title: 'Events & training', subtitle: 'Meetings, courses and registrations.' },
   '/admin/enquiries': { title: 'Enquiries', subtitle: 'Messages from the public contact form.' },
-  '/admin/settings': { title: 'Settings', subtitle: 'Union details, dues rules and demo data.' }
+  '/admin/settings': { title: 'Settings', subtitle: 'Union details, dues rules and platform data.' }
 };
 
 export default function AdminLayout() {
@@ -35,7 +35,9 @@ export default function AdminLayout() {
   const { session, logout } = useAuth();
   const { push } = useToast();
   const state = useStore();
-  const pending = state.members.filter((member) => member.status === 'pending').length;
+  const pending =
+    state.members.filter((member) => member.status === 'pending').length +
+    (state.applications || []).filter((application) => application.status === 'pending').length;
   const unread = state.messages.filter((message) => !message.read).length;
   const meta = TITLES[location.pathname] || { title: 'Admin', subtitle: '' };
 
@@ -44,8 +46,8 @@ export default function AdminLayout() {
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     push('Signed out of the union workspace.', 'success');
     navigate('/login', { replace: true });
   };
@@ -115,7 +117,7 @@ export default function AdminLayout() {
         </header>
 
         <div className="admin-content">
-          <Outlet />
+          {state.loading ? <div className="card">Loading union data…</div> : <Outlet />}
         </div>
       </main>
     </div>

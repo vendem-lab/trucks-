@@ -1,7 +1,8 @@
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import Icon from './Icon.jsx';
 import StatusBadge from './StatusBadge.jsx';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/authContext.js';
+import { useToast } from '../context/ToastContext.jsx';
 import { useStore } from '../lib/store.js';
 import { TIER_BY_ID } from '../config.js';
 import { initials } from '../lib/format.js';
@@ -14,11 +15,22 @@ const TABS = [
 ];
 
 export default function MemberLayout() {
-  const { session } = useAuth();
+  const { session, logout } = useAuth();
+  const { push } = useToast();
+  const navigate = useNavigate();
   const state = useStore();
   const member = state.members.find((entry) => entry.id === session?.memberId);
 
   if (!member) {
+    if (state.loading) {
+      return (
+        <section className="section">
+          <div className="container container-narrow">
+            <div className="card">Loading your member record…</div>
+          </div>
+        </section>
+      );
+    }
     return (
       <section className="section">
         <div className="container container-narrow">
@@ -26,8 +38,8 @@ export default function MemberLayout() {
             <span className="empty-icon"><Icon name="alert" size={26} /></span>
             <h2>We could not find your member record</h2>
             <p>
-              The record may have been removed from this browser. Call the union office on the member
-              line and we will restore it.
+              The record may still be loading, or it may have been removed. Call the union office on
+              the member line and we will check it.
             </p>
             <Link to="/contact" className="btn btn-primary">Contact the union</Link>
           </div>
@@ -37,6 +49,12 @@ export default function MemberLayout() {
   }
 
   const tier = TIER_BY_ID[member.tier] || TIER_BY_ID.independent;
+
+  const handleLogout = async () => {
+    await logout();
+    push('Signed out of the member portal.', 'success');
+    navigate('/login', { replace: true });
+  };
 
   return (
     <>
@@ -54,9 +72,14 @@ export default function MemberLayout() {
               </div>
             </div>
           </div>
-          <Link to="/loads" className="btn btn-primary">
-            <Icon name="clipboard" size={16} /> Browse the load board
-          </Link>
+          <div className="portal-head-actions">
+            <Link to="/loads" className="btn btn-primary">
+              <Icon name="clipboard" size={16} /> Browse the load board
+            </Link>
+            <button type="button" className="btn btn-ghost" onClick={handleLogout}>
+              Sign out
+            </button>
+          </div>
         </div>
         <div className="container portal-tabs">
           {TABS.map((tab) => (

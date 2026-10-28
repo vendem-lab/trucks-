@@ -1,7 +1,6 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AuthContext } from './authContext.js';
 import { signIn, signInWithGoogle, signOut, subscribeToAuth } from '../lib/auth.js';
-
-const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
@@ -12,14 +11,16 @@ export function AuthProvider({ children }) {
     setSession(next);
     setAuthLoading(false);
     if (next?.profileError) setAuthError(`Signed in, but the account profile could not be loaded: ${next.profileError}`);
-    else if (next?.profileMissing) setAuthError('Signed in, but no union profile exists for this account. Contact the union office.');
+    else if (next?.profileMissing) setAuthError('Signed in, but no union profile exists for this account. Complete a membership application.');
     else setAuthError('');
   }), []);
 
   const login = useCallback(async (email, password) => {
     setAuthError('');
     try {
-      return { ok: true, session: await signIn(email, password) };
+      const next = await signIn(email, password);
+      setSession(next);
+      return { ok: true, session: next };
     } catch (error) {
       const messages = {
         'auth/invalid-credential': 'That email and password combination is not recognised.',
@@ -35,7 +36,9 @@ export function AuthProvider({ children }) {
   const loginWithGoogle = useCallback(async () => {
     setAuthError('');
     try {
-      return { ok: true, session: await signInWithGoogle() };
+      const next = await signInWithGoogle();
+      setSession(next);
+      return { ok: true, session: next };
     } catch (error) {
       const messages = {
         'auth/popup-closed-by-user': 'Google sign-in was closed before it finished.',
@@ -48,7 +51,11 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const logout = useCallback(() => signOut(), []);
+  const logout = useCallback(async () => {
+    await signOut();
+    setSession(null);
+    setAuthError('');
+  }, []);
 
   const value = useMemo(
     () => ({ session, authLoading, authError, login, loginWithGoogle, logout }),
@@ -56,10 +63,4 @@ export function AuthProvider({ children }) {
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used inside AuthProvider');
-  return context;
 }

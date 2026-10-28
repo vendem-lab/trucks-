@@ -3,7 +3,7 @@ import Icon from '../../components/Icon.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import StatCard from '../../components/StatCard.jsx';
 import { TIER_BY_ID } from '../../config.js';
-import { useAuth } from '../../context/AuthContext.jsx';
+import { useAuth } from '../../context/authContext.js';
 import { useStore } from '../../lib/store.js';
 import { countAlertMatches, duesSummary, duesTone, eventDateParts } from '../../lib/union.js';
 import { formatCurrency, formatDate } from '../../lib/format.js';

@@ -53,9 +53,14 @@ export default function Enquiries() {
     push(message.read ? 'Marked as unread.' : 'Marked as read.', 'success');
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!deleting) return;
-    deleteMessage(deleting.id);
+    try {
+      await deleteMessage(deleting.id);
+    } catch (error) {
+      push(error.message || 'Could not delete the enquiry.', 'error');
+      return;
+    }
     if (selectedId === deleting.id) setSelectedId(null);
     setDeleteId(null);
     push('Enquiry deleted.', 'success');

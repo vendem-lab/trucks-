@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Field from '../../components/Field.jsx';
 import Icon from '../../components/Icon.jsx';
 import { ALERT_FREQUENCIES, TRAILER_TYPES } from '../../config.js';
-import { useAuth } from '../../context/AuthContext.jsx';
+import { useAuth } from '../../context/authContext.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { addAlert, deleteAlert, updateAlert, useStore } from '../../lib/store.js';
 import { countAlertMatches, matchesAlert } from '../../lib/union.js';
@@ -180,9 +180,13 @@ export default function Alerts() {
                         <button
                           type="button"
                           className="btn btn-ghost btn-sm"
-                          onClick={() => {
-                            Promise.resolve(updateAlert(alert.id, { active: !alert.active })).catch((error) => push(error.message, 'error'));
-                            push(alert.active ? 'Alert paused.' : 'Alert resumed.', 'success');
+                          onClick={async () => {
+                            try {
+                              await updateAlert(alert.id, { active: !alert.active });
+                              push(alert.active ? 'Alert paused.' : 'Alert resumed.', 'success');
+                            } catch (error) {
+                              push(error.message || 'Could not update the alert.', 'error');
+                            }
                           }}
                         >
                           {alert.active ? 'Pause' : 'Resume'}
@@ -190,9 +194,13 @@ export default function Alerts() {
                         <button
                           type="button"
                           className="icon-btn icon-btn-danger"
-                          onClick={() => {
-                              Promise.resolve(deleteAlert(alert.id)).catch((error) => push(error.message, 'error'));
-                            push('Alert deleted.', 'success');
+                          onClick={async () => {
+                            try {
+                              await deleteAlert(alert.id);
+                              push('Alert deleted.', 'success');
+                            } catch (error) {
+                              push(error.message || 'Could not delete the alert.', 'error');
+                            }
                           }}
                           aria-label="Delete alert"
                         >

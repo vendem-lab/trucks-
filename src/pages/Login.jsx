@@ -4,7 +4,7 @@ import Logo from '../components/Logo.jsx';
 import Field from '../components/Field.jsx';
 import Icon from '../components/Icon.jsx';
 import { BRAND } from '../config.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/authContext.js';
 import { useToast } from '../context/ToastContext.jsx';
 
 export default function Login() {
@@ -29,7 +29,11 @@ export default function Login() {
     return <div className="auth-page"><main className="auth-main"><div className="auth-card">Checking your account…</div></main></div>;
   }
 
-  if (session && !session.profileMissing && !session.profileError) {
+  if (session?.profileMissing && !session.profileError) {
+    return <Navigate to="/membership" replace />;
+  }
+
+  if (session && !session.profileError) {
     return <Navigate to={target} replace />;
   }
 
@@ -62,6 +66,11 @@ export default function Login() {
     const result = await loginWithGoogle();
     if (!result.ok) {
       setError(result.error);
+      return;
+    }
+    if (result.session.profileMissing) {
+      push('Complete your membership application to join the union.', 'success');
+      navigate('/membership', { replace: true });
       return;
     }
     const destination = requested &&

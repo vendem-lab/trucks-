@@ -8,7 +8,7 @@ import { EVENT_TYPES } from '../config.js';
 import { isDemoMode, registerForEvent, useStore } from '../lib/store.js';
 import { eventDateParts, eventDateRange, eventTime } from '../lib/union.js';
 import { formatCurrency, isValidEmail, isValidPhone } from '../lib/format.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/authContext.js';
 import { useToast } from '../context/ToastContext.jsx';
 
 const EMPTY_REGISTRATION = { name: '', email: '', phone: '' };
@@ -157,7 +157,11 @@ export default function Events() {
             </span>
           </div>
 
-          {upcoming.length ? (
+          {state.loading ? (
+            <div className="card">
+              <p>Loading events…</p>
+            </div>
+          ) : upcoming.length ? (
             <div className="event-list">
               {upcoming.map((event) => {
                 const parts = eventDateParts(event.startDate);
