@@ -14,6 +14,7 @@ import {
   useStore
 } from '../../lib/store.js';
 import { formatCurrency, formatDate, formatShortDate, timeAgo } from '../../lib/format.js';
+import { calculateRoadDistance } from '../../lib/routeDistance.js';
 import { useToast } from '../../context/ToastContext.jsx';
 
 function todayPlus(days) {
@@ -77,6 +78,7 @@ export default function LoadsAdmin() {
   const [formErrors, setFormErrors] = useState({});
   const [detailId, setDetailId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [calculatingDistance, setCalculatingDistance] = useState(false);
 
   useEffect(() => {
     if (searchParams.get('new') === '1') {
@@ -127,6 +129,24 @@ export default function LoadsAdmin() {
       delete next[key];
       return next;
     });
+  };
+
+  const handleCalculateDistance = async () => {
+    setCalculatingDistance(true);
+    try {
+      const distanceKm = await calculateRoadDistance(form.origin, form.destination);
+      setForm((current) => ({ ...current, distanceKm: String(distanceKm) }));
+      setFormErrors((current) => {
+        const next = { ...current };
+        delete next.distanceKm;
+        return next;
+      });
+      push(`Estimated driving distance: ${distanceKm} km.`, 'success');
+    } catch (error) {
+      push(error.message || 'Could not calculate the distance.', 'error');
+    } finally {
+      setCalculatingDistance(false);
+    }
   };
 
   const handleSave = async (event) => {
@@ -346,6 +366,20 @@ export default function LoadsAdmin() {
                 <span>km</span>
               </div>
             </Field>
+            <div className="route-distance-control">
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={handleCalculateDistance}
+                disabled={calculatingDistance || !form.origin.trim() || !form.destination.trim()}
+              >
+                <Icon name="route" size={15} /> {calculatingDistance ? 'Calculating…' : 'Calculate road distance'}
+              </button>
+              <span>
+                Distance only · © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap contributors</a>
+                {' '}· routing by <a href="https://project-osrm.org/" target="_blank" rel="noreferrer">OSRM</a>
+              </span>
+            </div>
             <Field label="Weight" htmlFor="load-weight" required error={formErrors.weightTons}>
               <div className="input-suffix">
                 <input id="load-weight" type="number" min="0.1" step="0.1" value={form.weightTons} onChange={update('weightTons')} placeholder="18" />

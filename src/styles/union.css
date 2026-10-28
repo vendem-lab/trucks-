@@ -2826,3 +2826,21 @@
     text-align: left;
   }
 }
+.route-distance-control {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: -8px;
+}
+
+.route-distance-control > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.route-distance-control a {
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
