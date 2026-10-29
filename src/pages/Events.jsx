@@ -76,7 +76,7 @@ export default function Events() {
     state.registrations.some(
       (registration) =>
         registration.eventId === event.id &&
-        registration.email.toLowerCase() === String(member?.email || session?.email || '').toLowerCase()
+        String(registration.email || '').toLowerCase() === String(member?.email || session?.email || '').toLowerCase()
     );
 
   const handleRegister = async (event) => {
@@ -90,27 +90,41 @@ export default function Events() {
     if (Object.keys(next).length) return;
 
     try {
-    const result = await registerForEvent(selected.id, {
-      ...form,
-      memberId: member?.id || ''
-    });
-    if (!result.ok && result.error) {
-      push(result.error, 'error');
-      return;
-    }
-    if (!result.ok) {
-      push(
-        result.duplicate
-          ? 'You are already registered for this event.'
-          : result.error || 'Registration failed.',
-        'error'
-      );
-      return;
-    }
-    push(`You are registered for ${selected.title}.`, 'success');
-    setSelected(null);
+      const result = await registerForEvent(selected.id, {
+        ...form,
+        memberId: member?.id || ''
+      });
+      if (!result.ok && result.error) {
+        push(result.error, 'error');
+        return;
+      }
+      if (!result.ok) {
+        push(
+          result.duplicate
+            ? 'You are already registered for this event.'
+            : result.error || 'Registration failed.',
+          'error'
+        );
+        return;
+      }
+      push(`You are registered for ${selected.title}.`, 'success');
+      setSelected(null);
     } catch (error) {
-      push(error.message || 'Registration failed.', 'error');
+      const messages = {
+        'functions/already-exists': 'You are already registered for this event.',
+        'functions/failed-precondition': 'Your account must have an active membership to register for this event.',
+        'functions/permission-denied': 'Your account is not allowed to register for this event.',
+        'functions/resource-exhausted': 'This event is full.',
+        'functions/unavailable': 'Registration is temporarily unavailable. Try again shortly.',
+        'functions/deadline-exceeded': 'Registration took too long. Check your registration before trying again.',
+        'functions/internal': 'Registration could not be completed. Please try again or contact the union office.'
+      };
+      const message = error.code === 'functions/not-found'
+        ? /registerForEvent/i.test(error.message || '')
+          ? 'The registration service is not deployed. Please contact the site administrator.'
+          : 'This event could not be found. Refresh the page and try again.'
+        : messages[error.code] || error.message || 'Registration failed.';
+      push(message, 'error');
     }
   };
 

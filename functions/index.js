@@ -71,12 +71,14 @@ export const registerForEvent = onCall(async (request) => {
   const registrationId = `${eventId}_${auth.uid}`;
   const registrationRef = db.doc(`registrations/${registrationId}`);
   await db.runTransaction(async (transaction) => {
-    const [event, existing] = await Promise.all([transaction.get(eventRef), transaction.get(registrationRef)]);
+    const [event, existing, member] = await Promise.all([
+      transaction.get(eventRef),
+      transaction.get(registrationRef),
+      transaction.get(db.doc(`members/${auth.uid}`))
+    ]);
     if (!event.exists) throw new HttpsError('not-found', 'Event not found.');
     if (existing.exists) throw new HttpsError('already-exists', 'You are already registered for this event.');
     const data = event.data();
-    let member = null;
-    if (data.memberOnly) member = await transaction.get(db.doc(`members/${auth.uid}`));
     if (data.memberOnly && (!member?.exists || member.data().status !== 'active')) throw new HttpsError('permission-denied', 'An active membership is required for this event.');
     if (Number(data.capacity) > 0 && Number(data.registered) >= Number(data.capacity)) {
       throw new HttpsError('resource-exhausted', 'This event is full.');
