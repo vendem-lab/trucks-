@@ -173,7 +173,7 @@ export default function LoadsAdmin() {
         await updateLoad(editingId, form);
         push('Load updated.', 'success');
       } else {
-        const load = addLoad(form);
+        const load = await addLoad(form);
         push(`Load ${load.reference} posted.`, 'success');
       }
     } catch (error) {

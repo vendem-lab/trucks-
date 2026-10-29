@@ -194,16 +194,24 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="load-grid">
-            {openLoads.map((load) => (
-              <LoadCard key={load.id} load={load}>
-                <span className="load-lock"><Icon name="lock" size={14} /> Members only</span>
-                <Link to="/loads" className="btn btn-outline btn-sm">
-                  View load
-                </Link>
-              </LoadCard>
-            ))}
-          </div>
+          {state.loading ? (
+            <div className="card"><p>Loading the load board…</p></div>
+          ) : openLoads.length ? (
+            <div className="load-grid">
+              {openLoads.map((load) => (
+                <LoadCard key={load.id} load={load}>
+                  <span className="load-lock"><Icon name="lock" size={14} /> Members only</span>
+                  <Link to="/loads" className="btn btn-outline btn-sm">
+                    View load
+                  </Link>
+                </LoadCard>
+              ))}
+            </div>
+          ) : (
+            <div className="card">
+              <p>No open loads right now. New verified loads are posted every weekday.</p>
+            </div>
+          )}
 
           <div className="load-board-note">
             <Icon name="shield" size={18} />
@@ -284,16 +292,22 @@ export default function Home() {
                 </Link>
               </div>
               <div className="news-list">
-                {latestNews.map((article) => (
-                  <Link key={article.id} to={`/news/${article.id}`} className="news-row">
-                    <span className="news-row-meta">
-                      <span className="badge badge-brand">{categoryLabel(article.category)}</span>
-                      <time>{formatDate(article.publishedAt)}</time>
-                    </span>
-                    <strong>{article.title}</strong>
-                    <p>{article.excerpt}</p>
-                  </Link>
-                ))}
+                {state.loading ? (
+                  <div className="card"><p>Loading updates…</p></div>
+                ) : latestNews.length ? (
+                  latestNews.map((article) => (
+                    <Link key={article.id} to={`/news/${article.id}`} className="news-row">
+                      <span className="news-row-meta">
+                        <span className="badge badge-brand">{categoryLabel(article.category)}</span>
+                        <time>{formatDate(article.publishedAt)}</time>
+                      </span>
+                      <strong>{article.title}</strong>
+                      <p>{article.excerpt}</p>
+                    </Link>
+                  ))
+                ) : (
+                  <div className="card"><p>No updates from the union office yet.</p></div>
+                )}
               </div>
             </div>
 
@@ -308,22 +322,28 @@ export default function Home() {
                 </Link>
               </div>
               <div className="event-mini-list">
-                {upcoming.map((event) => {
-                  const parts = eventDateParts(event.startDate);
-                  return (
-                    <Link key={event.id} to="/events" className="event-mini">
-                      <span className="event-date">
-                        <strong>{parts.day}</strong>
-                        <span>{parts.month}</span>
-                      </span>
-                      <div>
-                        <span className="event-mini-type">{eventTypeLabel(event.type)}</span>
-                        <strong>{event.title}</strong>
-                        <span><Icon name="mapPin" size={13} /> {event.location}</span>
-                      </div>
-                    </Link>
-                  );
-                })}
+                {state.loading ? (
+                  <div className="card"><p>Loading events…</p></div>
+                ) : upcoming.length ? (
+                  upcoming.map((event) => {
+                    const parts = eventDateParts(event.startDate);
+                    return (
+                      <Link key={event.id} to="/events" className="event-mini">
+                        <span className="event-date">
+                          <strong>{parts.day}</strong>
+                          <span>{parts.month}</span>
+                        </span>
+                        <div>
+                          <span className="event-mini-type">{eventTypeLabel(event.type)}</span>
+                          <strong>{event.title}</strong>
+                          <span><Icon name="mapPin" size={13} /> {event.location}</span>
+                        </div>
+                      </Link>
+                    );
+                  })
+                ) : (
+                  <div className="card"><p>No upcoming events are scheduled yet.</p></div>
+                )}
               </div>
             </div>
           </div>

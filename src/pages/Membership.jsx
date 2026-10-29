@@ -230,7 +230,21 @@ export default function Membership() {
       <section className="section" id="join">
         <div className="container join-layout">
           <div className="join-main">
-            {member ? (
+            {session?.role === 'member' && session.memberStatus === 'pending' && !session.profileMissing ? (
+              <div className="card join-signed-in">
+                <span className="empty-icon"><Icon name="clock" size={26} /></span>
+                <h2>Your application is awaiting approval</h2>
+                <p>
+                  The membership office is checking the details for {session.email}. Your member
+                  number activates once the application is approved.
+                </p>
+                <div className="join-signed-in-actions">
+                  <Link to="/portal" className="btn btn-outline">
+                    View application status
+                  </Link>
+                </div>
+              </div>
+            ) : member ? (
               <div className="card join-signed-in">
                 <span className="empty-icon"><Icon name="checkCircle" size={26} /></span>
                 <h2>You are already a member</h2>

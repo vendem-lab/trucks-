@@ -108,17 +108,17 @@ export default function NewsAdmin() {
       readMins: Number(form.readMins) || 2
     };
 
-    if (editingId) {
-      try {
+    try {
+      if (editingId) {
         await updateNews(editingId, payload);
-      } catch (error) {
-        push(error.message || 'Could not update the article.', 'error');
-        return;
+        push('Article updated.', 'success');
+      } else {
+        await addNews(payload);
+        push('Article published.', 'success');
       }
-      push('Article updated.', 'success');
-    } else {
-      addNews(payload);
-      push('Article published.', 'success');
+    } catch (error) {
+      push(error.message || 'Could not save the article.', 'error');
+      return;
     }
     setFormOpen(false);
   };

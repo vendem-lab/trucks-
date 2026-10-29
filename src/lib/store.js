@@ -193,18 +193,6 @@ function removeRecord(collectionName, id) {
   });
 }
 
-function addRecord(collectionName, record) {
-  if (!record?.id) return;
-  if (DEMO_MODE) {
-    const draft = clone(state);
-    draft[collectionName].unshift(record);
-    persist(draft);
-  } else {
-    const { id, ...data } = record;
-    setDoc(doc(firebaseDb, collectionName, id), data).catch((error) => console.error(`Could not save ${collectionName} record.`, error));
-  }
-}
-
 function updateRecord(collectionName, id, patch) {
   const record = { ...getRecord(collectionName, id), ...patch, id };
   if (DEMO_MODE) {
@@ -259,7 +247,8 @@ export function addMember(payload) {
       phone: String(payload.phone || '').trim(),
       password: String(payload.password || 'driver123'),
       tier: payload.tier || 'independent',
-      status: 'pending',
+      status: payload.status || 'pending',
+      approvedAt: payload.status === 'active' ? new Date().toISOString() : '',
       region: String(payload.region || '').trim(),
       city: String(payload.city || '').trim(),
       vehicleType: payload.vehicleType || 'Dry van',
@@ -355,7 +344,7 @@ export function getMemberByEmail(email) {
    Loads
 ------------------------------------------------------------------ */
 
-export function addLoad(payload) {
+export async function addLoad(payload) {
   if (!DEMO_MODE) {
     const load = {
       id: uid('load'), reference: `LD-${Date.now()}`, title: String(payload.title || '').trim(),
@@ -369,7 +358,7 @@ export function addLoad(payload) {
       notes: String(payload.notes || '').trim(), filledBy: '', filledById: '', filledAt: ''
     };
     const { id, ...data } = load;
-    setDoc(doc(firebaseDb, 'loads', id), data).catch((error) => console.error('Could not create load.', error));
+    await setDoc(doc(firebaseDb, 'loads', id), data);
     return load;
   }
   return commit((draft) => {
@@ -467,7 +456,7 @@ export function getOpenLoads() {
    Dues
 ------------------------------------------------------------------ */
 
-export function addDues(payload) {
+export async function addDues(payload) {
   if (!DEMO_MODE) {
     const member = getRecord('members', payload.memberId);
     const invoice = { id: uid('due'), reference: `DUE-${Date.now()}`, memberId: payload.memberId,
@@ -475,7 +464,7 @@ export function addDues(payload) {
       amount: Number(payload.amount) || 0, dueDate: payload.dueDate || '', status: payload.status || 'due',
       paidAt: '', method: '', note: String(payload.note || '').trim() };
     const { id, ...data } = invoice;
-    setDoc(doc(firebaseDb, 'dues', id), data).catch((error) => console.error('Could not create dues invoice.', error));
+    await setDoc(doc(firebaseDb, 'dues', id), data);
     return invoice;
   }
   return commit((draft) => {
@@ -564,13 +553,13 @@ export function getMemberAlerts(memberId) {
    News
 ------------------------------------------------------------------ */
 
-export function addNews(payload) {
+export async function addNews(payload) {
   if (!DEMO_MODE) {
     const article = { id: uid('news'), title: String(payload.title || '').trim(), category: payload.category || 'announcement',
       excerpt: String(payload.excerpt || '').trim(), body: normalizeBody(payload.body), author: String(payload.author || '').trim() || 'Union office',
       publishedAt: payload.publishedAt ? new Date(payload.publishedAt).toISOString() : new Date().toISOString(), featured: Boolean(payload.featured), readMins: Number(payload.readMins) || 2 };
     const { id, ...data } = article;
-    setDoc(doc(firebaseDb, 'news', id), data).catch((error) => console.error('Could not create article.', error));
+    await setDoc(doc(firebaseDb, 'news', id), data);
     return article;
   }
   return commit((draft) => {
@@ -630,14 +619,14 @@ function normalizeBody(value) {
    Events
 ------------------------------------------------------------------ */
 
-export function addEvent(payload) {
+export async function addEvent(payload) {
   if (!DEMO_MODE) {
     const event = { id: uid('event'), title: String(payload.title || '').trim(), type: payload.type || 'meeting',
       description: String(payload.description || '').trim(), location: String(payload.location || '').trim(), region: String(payload.region || '').trim(),
       startDate: payload.startDate ? new Date(payload.startDate).toISOString() : new Date().toISOString(), endDate: payload.endDate ? new Date(payload.endDate).toISOString() : '',
       capacity: Number(payload.capacity) || 0, registered: 0, fee: Number(payload.fee) || 0, memberOnly: Boolean(payload.memberOnly), trainer: String(payload.trainer || '').trim() };
     const { id, ...data } = event;
-    setDoc(doc(firebaseDb, 'events', id), data).catch((error) => console.error('Could not create event.', error));
+    await setDoc(doc(firebaseDb, 'events', id), data);
     return event;
   }
   return commit((draft) => {
@@ -865,12 +854,12 @@ export function addMessage(payload) {
   });
 }
 
-export function markMessageRead(id, read = true) {
+export async function markMessageRead(id, read = true) {
   if (!DEMO_MODE) {
     const message = { ...getRecord('messages', id), read, id };
     if (message.email) {
       const { id: _id, ...data } = message;
-      setDoc(doc(firebaseDb, 'enquiries', id), data, { merge: true }).catch(console.error);
+      await setDoc(doc(firebaseDb, 'enquiries', id), data, { merge: true });
     }
     return message;
   }

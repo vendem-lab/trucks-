@@ -1,5 +1,4 @@
 import { getApp, getApps, initializeApp } from 'firebase/app';
-import { getAnalytics, isSupported } from 'firebase/analytics';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getFunctions } from 'firebase/functions';
@@ -10,8 +9,7 @@ const firebaseConfig = {
   projectId: 'hualway',
   storageBucket: 'hualway.firebasestorage.app',
   messagingSenderId: '947307182394',
-  appId: '1:947307182394:web:552800ccca0406bc94f803',
-  measurementId: 'G-MGTD5W0YG2'
+  appId: '1:947307182394:web:552800ccca0406bc94f803'
 };
 
 export const firebaseApp = getApps().length ? getApp() : initializeApp(firebaseConfig);
@@ -19,11 +17,3 @@ export const firebaseAuth = getAuth(firebaseApp);
 export const firebaseDb = getFirestore(firebaseApp);
 // Callable functions use the default Cloud Functions region unless explicitly configured.
 export const firebaseFunctions = getFunctions(firebaseApp, 'us-central1');
-
-// Analytics is not available in every browser or local preview environment.
-export const firebaseAnalytics =
-  typeof window === 'undefined'
-    ? Promise.resolve(null)
-    : isSupported()
-        .then((supported) => (supported ? getAnalytics(firebaseApp) : null))
-        .catch(() => null);

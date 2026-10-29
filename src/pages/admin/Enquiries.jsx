@@ -43,13 +43,23 @@ export default function Enquiries() {
 
   const deleting = deleteId ? state.messages.find((message) => message.id === deleteId) : null;
 
-  const open = (message) => {
+  const open = async (message) => {
     setSelectedId(message.id);
-    if (!message.read) markMessageRead(message.id, true);
+    if (message.read) return;
+    try {
+      await markMessageRead(message.id, true);
+    } catch (error) {
+      push(error.message || 'Could not mark the enquiry as read.', 'error');
+    }
   };
 
-  const toggleRead = (message) => {
-    markMessageRead(message.id, !message.read);
+  const toggleRead = async (message) => {
+    try {
+      await markMessageRead(message.id, !message.read);
+    } catch (error) {
+      push(error.message || 'Could not update the enquiry.', 'error');
+      return;
+    }
     push(message.read ? 'Marked as unread.' : 'Marked as read.', 'success');
   };
 

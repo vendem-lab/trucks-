@@ -66,7 +66,7 @@ export function eventRegistrationFor(registrations, eventId, email) {
   if (!value) return null;
   return (
     registrations.find(
-      (entry) => entry.eventId === eventId && entry.email.toLowerCase() === value
+      (entry) => entry.eventId === eventId && String(entry.email || '').toLowerCase() === value
     ) || null
   );
 }

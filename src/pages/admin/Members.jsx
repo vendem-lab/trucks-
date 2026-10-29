@@ -159,7 +159,6 @@ export default function Members() {
         return;
       } else {
         const created = addMember(form);
-        if (form.status === 'active') setMemberStatus(created.id, 'active');
         push(`Member ${created.memberNumber} added.`, 'success');
       }
     }

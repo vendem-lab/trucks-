@@ -116,7 +116,7 @@ export default function DuesAdmin() {
     setFormOpen(true);
   };
 
-  const handleCreate = (event) => {
+  const handleCreate = async (event) => {
     event.preventDefault();
     const next = {};
     if (!form.memberId) next.memberId = 'Choose a member.';
@@ -128,7 +128,13 @@ export default function DuesAdmin() {
       push('Check the highlighted fields.', 'error');
       return;
     }
-    const invoice = addDues(form);
+    let invoice;
+    try {
+      invoice = await addDues(form);
+    } catch (error) {
+      push(error.message || 'Could not create the invoice.', 'error');
+      return;
+    }
     push(`Invoice ${invoice.reference} created.`, 'success');
     setFormOpen(false);
   };

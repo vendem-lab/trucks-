@@ -162,7 +162,7 @@ export default function EventsAdmin() {
         await updateEvent(editingId, payload);
         push('Event updated.', 'success');
       } else {
-        addEvent(payload);
+        await addEvent(payload);
         push('Event published to the events page.', 'success');
       }
     } catch (error) {
