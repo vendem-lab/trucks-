@@ -1,19 +1,20 @@
 import { useSyncExternalStore } from 'react';
 import { buildSeed } from './seed.js';
-import { addDoc, collection, doc, onSnapshot, setDoc, deleteDoc, query, where } from 'firebase/firestore';
-import { firebaseDb } from './firebase.js';
 import {
-  claimOpenLoad,
-  createJobAlertSecurely,
-  deleteEventRegistrationSecurely,
-  deleteEventSecurely,
-  deleteJobAlertSecurely,
-  payDuesSecurely,
-  registerForEventSecurely,
-  setMemberStatusSecurely,
-  updateJobAlertSecurely,
-  updateOwnMemberProfile
-} from './callables.js';
+  addDoc,
+  collection,
+  deleteDoc,
+  doc,
+  getDocs,
+  onSnapshot,
+  query,
+  runTransaction,
+  setDoc,
+  updateDoc,
+  where,
+  writeBatch
+} from 'firebase/firestore';
+import { firebaseAuth, firebaseDb } from './firebase.js';
 
 const STORAGE_KEY = 'haulway_union_v1';
 const listeners = new Set();
@@ -275,10 +276,40 @@ export async function createMemberRecord(record) {
   return { ...record, applicationId: record.uid };
 }
 
+const PROFILE_FIELDS = [
+  'name',
+  'phone',
+  'region',
+  'city',
+  'vehicleType',
+  'vehiclePlate',
+  'licenseNumber',
+  'emergencyName',
+  'emergencyPhone',
+  'notes'
+];
+
+function pickFields(patch, fields) {
+  return Object.fromEntries(
+    Object.entries(patch || {}).filter(([key]) => fields.includes(key))
+  );
+}
+
 export function updateMember(id, patch) {
   if (!DEMO_MODE) {
-    return updateOwnMemberProfile(patch).then(() => {
-      const member = { ...getRecord('members', id), ...patch, id };
+    const uid = firebaseAuth.currentUser?.uid;
+    if (!uid) return Promise.reject(new Error('Sign in again to update your profile.'));
+    if (id !== uid) return Promise.reject(new Error('You can only update your own profile.'));
+    const clean = pickFields(patch, PROFILE_FIELDS);
+    if (!Object.keys(clean).length) return Promise.reject(new Error('Provide the profile details to save.'));
+    const updatedAt = new Date().toISOString();
+    const batch = writeBatch(firebaseDb);
+    batch.set(doc(firebaseDb, 'members', id), { ...clean, updatedAt }, { merge: true });
+    if (typeof clean.name === 'string') {
+      batch.set(doc(firebaseDb, 'users', uid), { name: clean.name }, { merge: true });
+    }
+    return batch.commit().then(() => {
+      const member = { ...getRecord('members', id), ...clean, updatedAt, id };
       state = { ...state, members: state.members.map((entry) => entry.id === id ? member : entry) };
       listeners.forEach((listener) => listener());
       return member;
@@ -298,8 +329,23 @@ export function updateMember(id, patch) {
 
 export function setMemberStatus(id, status) {
   if (!DEMO_MODE) {
-    return setMemberStatusSecurely(id, status).then(() => {
-      const member = { ...getRecord('members', id), id, status };
+    if (!['active', 'suspended', 'expired', 'pending'].includes(status)) {
+      return Promise.reject(new Error('Choose a valid membership status.'));
+    }
+    const batch = writeBatch(firebaseDb);
+    batch.set(
+      doc(firebaseDb, 'members', id),
+      { status, ...(status === 'active' ? { approvedAt: new Date().toISOString() } : {}) },
+      { merge: true }
+    );
+    batch.set(doc(firebaseDb, 'users', id), { memberStatus: status }, { merge: true });
+    return batch.commit().then(() => {
+      const member = {
+        ...getRecord('members', id),
+        id,
+        status,
+        ...(status === 'active' ? { approvedAt: new Date().toISOString() } : {})
+      };
       state = { ...state, members: state.members.map((entry) => entry.id === id ? member : entry) };
       listeners.forEach((listener) => listener());
       return member;
@@ -417,8 +463,26 @@ export function deleteLoad(id) {
 
 export function claimLoad(loadId, member) {
   if (!DEMO_MODE) {
-    return claimOpenLoad(loadId).then(() => {
-      const updated = { ...getRecord('loads', loadId), status: 'filled', filledBy: member?.name || 'Member', filledById: member?.id || '', filledAt: new Date().toISOString() };
+    const uid = firebaseAuth.currentUser?.uid;
+    if (!uid) return Promise.reject(new Error('Sign in as a member to claim this load.'));
+    const loadRef = doc(firebaseDb, 'loads', loadId);
+    return runTransaction(firebaseDb, async (transaction) => {
+      const snapshot = await transaction.get(loadRef);
+      if (!snapshot.exists()) throw new Error('Load not found.');
+      if (snapshot.data().status !== 'open') return null;
+      const filledAt = new Date().toISOString();
+      const filledBy = member?.name || firebaseAuth.currentUser?.displayName || 'Member';
+      transaction.update(loadRef, { status: 'filled', filledBy, filledById: uid, filledAt });
+      return {
+        ...snapshot.data(),
+        id: loadId,
+        status: 'filled',
+        filledBy,
+        filledById: uid,
+        filledAt
+      };
+    }).then((updated) => {
+      if (!updated) return null;
       state = { ...state, loads: state.loads.map((entry) => entry.id === loadId ? updated : entry) };
       listeners.forEach((listener) => listener());
       return updated;
@@ -489,15 +553,19 @@ export async function addDues(payload) {
 
 export function markDuesPaid(id, method = 'momo') {
   if (!DEMO_MODE) {
-    return payDuesSecurely(id, method).then(() => {
-      const invoice = {
-        ...getRecord('dues', id),
-        id,
-        status: 'paid',
-        paidAt: new Date().toISOString(),
-        method,
-        note: `Payment recorded by ${method}.`
-      };
+    const methodValue = ['momo', 'bank', 'cash'].includes(method) ? method : 'momo';
+    const invoiceRef = doc(firebaseDb, 'dues', id);
+    return runTransaction(firebaseDb, async (transaction) => {
+      const snapshot = await transaction.get(invoiceRef);
+      if (!snapshot.exists()) throw new Error('Dues invoice not found.');
+      const invoice = snapshot.data();
+      if (invoice.status === 'paid') return { ...invoice, id };
+      if (invoice.status === 'waived') throw new Error('This invoice has been waived.');
+      const paidAt = new Date().toISOString();
+      const note = `Payment recorded by ${methodValue}.`;
+      transaction.update(invoiceRef, { status: 'paid', paidAt, method: methodValue, note });
+      return { ...invoice, id, status: 'paid', paidAt, method: methodValue, note };
+    }).then((invoice) => {
       state = { ...state, dues: state.dues.map((entry) => (entry.id === id ? invoice : entry)) };
       listeners.forEach((listener) => listener());
       return invoice;
@@ -666,17 +734,22 @@ export function updateEvent(id, patch) {
   });
 }
 
-export function deleteEvent(id) {
+export async function deleteEvent(id) {
   if (!DEMO_MODE) {
-    return deleteEventSecurely(id).then(() => {
-      state = {
-        ...state,
-        events: state.events.filter((entry) => entry.id !== id),
-        registrations: state.registrations.filter((entry) => entry.eventId !== id)
-      };
-      listeners.forEach((listener) => listener());
-      return true;
-    });
+    const registrations = await getDocs(
+      query(collection(firebaseDb, 'registrations'), where('eventId', '==', id))
+    );
+    const batch = writeBatch(firebaseDb);
+    registrations.forEach((registration) => batch.delete(registration.ref));
+    batch.delete(doc(firebaseDb, 'events', id));
+    await batch.commit();
+    state = {
+      ...state,
+      events: state.events.filter((entry) => entry.id !== id),
+      registrations: state.registrations.filter((entry) => entry.eventId !== id)
+    };
+    listeners.forEach((listener) => listener());
+    return true;
   }
   return commit((draft) => {
     draft.events = draft.events.filter((entry) => entry.id !== id);
@@ -687,7 +760,55 @@ export function deleteEvent(id) {
 
 export function registerForEvent(eventId, payload) {
   if (!DEMO_MODE) {
-    return registerForEventSecurely(eventId, payload).then((result) => ({ ok: true, registration: result }));
+    const uid = firebaseAuth.currentUser?.uid;
+    const authEmail = String(firebaseAuth.currentUser?.email || '').trim().toLowerCase();
+    if (!uid) return Promise.reject(new Error('Sign in before registering for an event.'));
+    const name = String(payload.name || '').trim();
+    const phone = String(payload.phone || '').trim();
+    const email = authEmail || String(payload.email || '').trim().toLowerCase();
+    if (!eventId || !name || !email || !phone) {
+      return Promise.reject(new Error('Complete the registration details.'));
+    }
+
+    const eventRef = doc(firebaseDb, 'events', eventId);
+    const registrationId = `${eventId}_${uid}`;
+    const registrationRef = doc(firebaseDb, 'registrations', registrationId);
+
+    return runTransaction(firebaseDb, async (transaction) => {
+      const [eventSnapshot, existingSnapshot, memberSnapshot] = await Promise.all([
+        transaction.get(eventRef),
+        transaction.get(registrationRef),
+        transaction.get(doc(firebaseDb, 'members', uid))
+      ]);
+      if (!eventSnapshot.exists()) throw new Error('This event could not be found. Refresh the page and try again.');
+      if (existingSnapshot.exists()) {
+        return {
+          ok: false,
+          duplicate: true,
+          registration: { id: registrationId, ...existingSnapshot.data() }
+        };
+      }
+      const event = eventSnapshot.data();
+      if (event.memberOnly && (!memberSnapshot.exists() || memberSnapshot.data().status !== 'active')) {
+        throw new Error('Your account must have an active membership to register for this event.');
+      }
+      const capacity = Number(event.capacity) || 0;
+      const registered = Number(event.registered) || 0;
+      if (capacity > 0 && registered >= capacity) throw new Error('This event is full.');
+
+      const registration = {
+        eventId,
+        eventTitle: event.title,
+        memberId: uid,
+        name,
+        email,
+        phone,
+        createdAt: new Date().toISOString()
+      };
+      transaction.set(registrationRef, registration);
+      transaction.update(eventRef, { registered: registered + 1 });
+      return { ok: true, registration: { id: registrationId, ...registration } };
+    });
   }
   return commit((draft) => {
     const event = draft.events.find((entry) => entry.id === eventId);
@@ -719,7 +840,21 @@ export function getEventRegistrations(eventId) {
 
 export function deleteRegistration(id) {
   if (!DEMO_MODE) {
-    return deleteEventRegistrationSecurely(id).then(() => {
+    return runTransaction(firebaseDb, async (transaction) => {
+      const registrationRef = doc(firebaseDb, 'registrations', id);
+      const registrationSnapshot = await transaction.get(registrationRef);
+      if (!registrationSnapshot.exists()) return false;
+      const registration = registrationSnapshot.data();
+      const eventRef = doc(firebaseDb, 'events', registration.eventId);
+      const eventSnapshot = await transaction.get(eventRef);
+      transaction.delete(registrationRef);
+      if (eventSnapshot.exists()) {
+        const registered = Number(eventSnapshot.data().registered) || 0;
+        transaction.update(eventRef, { registered: Math.max(0, registered - 1) });
+      }
+      return true;
+    }).then((removed) => {
+      if (!removed) return false;
       const registration = getRecord('registrations', id);
       state = {
         ...state,
@@ -758,19 +893,27 @@ export function getUpcomingEvents() {
 
 export function addAlert(payload) {
   if (!DEMO_MODE) {
-    // The callable accepts only the matching criteria; member details are
-    // attached server-side from the signed-in account.
-    const criteria = {
-      origin: String(payload.origin || ''),
-      destination: String(payload.destination || ''),
-      trailerType: payload.trailerType || 'Any',
+    const uid = firebaseAuth.currentUser?.uid;
+    if (!uid) return Promise.reject(new Error('Sign in as a member to create job alerts.'));
+    const member = getRecord('members', uid);
+    const alert = {
+      memberId: uid,
+      name: String(member?.name || payload.name || firebaseAuth.currentUser?.displayName || 'Member').trim(),
+      email: String(firebaseAuth.currentUser?.email || member?.email || payload.email || '').trim().toLowerCase(),
+      phone: String(member?.phone || payload.phone || '').trim(),
+      origin: String(payload.origin || '').trim(),
+      destination: String(payload.destination || '').trim(),
+      trailerType: String(payload.trailerType || 'Any').trim(),
       minRate: Number(payload.minRate) || 0,
-      frequency: payload.frequency || 'instant'
+      frequency: payload.frequency || 'instant',
+      active: true,
+      createdAt: new Date().toISOString()
     };
-    return createJobAlertSecurely(criteria).then((alert) => {
-      state = { ...state, alerts: [alert, ...state.alerts] };
+    return addDoc(collection(firebaseDb, 'alerts'), alert).then((ref) => {
+      const saved = { id: ref.id, ...alert };
+      state = { ...state, alerts: [saved, ...state.alerts] };
       listeners.forEach((listener) => listener());
-      return alert;
+      return saved;
     });
   }
   return commit((draft) => {
@@ -793,13 +936,23 @@ export function addAlert(payload) {
   });
 }
 
+const ALERT_FIELDS = ['origin', 'destination', 'trailerType', 'minRate', 'frequency', 'active'];
+
 export function updateAlert(id, patch) {
   if (!DEMO_MODE) {
-    return updateJobAlertSecurely(id, patch).then(() => {
-      state = { ...state, alerts: state.alerts.map((alert) => alert.id === id ? { ...alert, ...patch } : alert) };
-      listeners.forEach((listener) => listener());
-      return getRecord('alerts', id);
-    });
+    const clean = pickFields(patch, ALERT_FIELDS);
+    if (!Object.keys(clean).length) return Promise.reject(new Error('Provide the alert changes to save.'));
+    if ('minRate' in clean) clean.minRate = Number(clean.minRate) || 0;
+    if ('trailerType' in clean) clean.trailerType = String(clean.trailerType || 'Any').trim();
+    if ('origin' in clean) clean.origin = String(clean.origin || '').trim();
+    if ('destination' in clean) clean.destination = String(clean.destination || '').trim();
+    return updateDoc(doc(firebaseDb, 'alerts', id), { ...clean, updatedAt: new Date().toISOString() })
+      .then(() => {
+        const alert = { ...getRecord('alerts', id), ...clean, id };
+        state = { ...state, alerts: state.alerts.map((entry) => entry.id === id ? alert : entry) };
+        listeners.forEach((listener) => listener());
+        return alert;
+      });
   }
   return commit((draft) => {
     const alert = draft.alerts.find((entry) => entry.id === id);
@@ -815,7 +968,7 @@ export function updateAlert(id, patch) {
 
 export function deleteAlert(id) {
   if (!DEMO_MODE) {
-    return deleteJobAlertSecurely(id).then(() => {
+    return deleteDoc(doc(firebaseDb, 'alerts', id)).then(() => {
       state = { ...state, alerts: state.alerts.filter((alert) => alert.id !== id) };
       listeners.forEach((listener) => listener());
       return true;

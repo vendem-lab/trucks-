@@ -111,20 +111,15 @@ export default function Events() {
       setSelected(null);
     } catch (error) {
       const messages = {
-        'functions/already-exists': 'You are already registered for this event.',
-        'functions/failed-precondition': 'Your account must have an active membership to register for this event.',
-        'functions/permission-denied': 'Your account is not allowed to register for this event.',
-        'functions/resource-exhausted': 'This event is full.',
-        'functions/unavailable': 'Registration is temporarily unavailable. Try again shortly.',
-        'functions/deadline-exceeded': 'Registration took too long. Check your registration before trying again.',
-        'functions/internal': 'Registration could not be completed. Please try again or contact the union office.'
+        'already-exists': 'You are already registered for this event.',
+        'failed-precondition': 'Your account must have an active membership to register for this event.',
+        'permission-denied': 'Your account is not allowed to register for this event.',
+        'resource-exhausted': 'This event is full.',
+        'unavailable': 'Registration is temporarily unavailable. Try again shortly.',
+        'aborted': 'Registration took too long. Check your registration before trying again.',
+        'not-found': 'This event could not be found. Refresh the page and try again.'
       };
-      const message = error.code === 'functions/not-found'
-        ? /registerForEvent/i.test(error.message || '')
-          ? 'The registration service is not deployed. Please contact the site administrator.'
-          : 'This event could not be found. Refresh the page and try again.'
-        : messages[error.code] || error.message || 'Registration failed.';
-      push(message, 'error');
+      push(messages[error.code] || error.message || 'Registration failed.', 'error');
     }
   };
 

@@ -2,12 +2,20 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
+    function userDoc(uid) { return /databases/$(database)/documents/users/$(uid); }
+    function memberDoc(uid) { return /databases/$(database)/documents/members/$(uid); }
+    function eventDoc(id) { return /databases/$(database)/documents/events/$(id); }
     function isStaff() {
       return signedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'staff';
+        && exists(userDoc(request.auth.uid))
+        && get(userDoc(request.auth.uid)).data.role == 'staff';
     }
     function isSelf(uid) { return signedIn() && request.auth.uid == uid; }
+    function isActiveMember(uid) {
+      return signedIn()
+        && exists(memberDoc(uid))
+        && get(memberDoc(uid)).data.status == 'active';
+    }
 
     match /users/{uid} {
       allow create: if isSelf(uid)
@@ -28,7 +36,13 @@ service cloud.firestore {
         && request.resource.data.status == 'active';
       allow list: if isStaff() || (signedIn() && resource.data.uid == request.auth.uid);
       allow get: if isStaff() || isSelf(uid);
-      allow update: if false;
+      // Members may only maintain the profile fields exposed in the portal.
+      allow update: if isStaff()
+        || (isSelf(uid)
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'name', 'phone', 'region', 'city', 'vehicleType', 'vehiclePlate',
+            'licenseNumber', 'emergencyName', 'emergencyPhone', 'notes', 'updatedAt'
+          ]));
       allow delete: if isStaff();
     }
     match /applications/{id} {
@@ -53,7 +67,16 @@ service cloud.firestore {
 
     match /loads/{id} {
       allow read: if true;
-      allow create, update, delete: if isStaff();
+      allow create, delete: if isStaff();
+      // Active members claim an open load by writing only the claim fields.
+      allow update: if isStaff()
+        || (isActiveMember(request.auth.uid)
+          && resource.data.status == 'open'
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'filledBy', 'filledById', 'filledAt'
+          ])
+          && request.resource.data.status == 'filled'
+          && request.resource.data.filledById == request.auth.uid);
     }
     match /news/{id} {
       allow read: if true;
@@ -61,20 +84,84 @@ service cloud.firestore {
     }
     match /events/{id} {
       allow read: if true;
-      allow create, update, delete: if isStaff();
+      allow create, delete: if isStaff();
+      // Members may only add one to the counter, in the same transaction as
+      // their own registration. Staff keep full control of the event document.
+      allow update: if isStaff()
+        || (signedIn()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registered'])
+          && request.resource.data.registered == resource.data.get('registered', 0) + 1
+          && !exists(/databases/$(database)/documents/registrations/$(id + '_' + request.auth.uid))
+          && existsAfter(/databases/$(database)/documents/registrations/$(id + '_' + request.auth.uid))
+          && (!resource.data.get('memberOnly', false) || isActiveMember(request.auth.uid))
+          && (resource.data.get('capacity', 0) == 0
+            || resource.data.get('registered', 0) < resource.data.get('capacity', 0)));
     }
     match /dues/{id} {
       allow list: if isStaff() || (signedIn() && resource.data.memberId == request.auth.uid);
       allow get: if isStaff() || (signedIn() && resource.data.memberId == request.auth.uid);
-      allow create, update, delete: if isStaff();
+      allow create, delete: if isStaff();
+      // Members can settle their own outstanding invoice; staff can adjust any.
+      allow update: if isStaff()
+        || (signedIn()
+          && resource.data.memberId == request.auth.uid
+          && resource.data.status in ['due', 'overdue']
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'paidAt', 'method', 'note'
+          ])
+          && request.resource.data.status == 'paid'
+          && request.resource.data.method in ['momo', 'bank', 'cash']);
     }
     match /alerts/{id} {
       allow list, get: if isStaff() || (signedIn() && resource.data.memberId == request.auth.uid);
-      allow create, update, delete: if false;
+      allow create: if signedIn()
+        && isActiveMember(request.auth.uid)
+        && request.resource.data.memberId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'memberId', 'name', 'email', 'phone', 'origin', 'destination',
+          'trailerType', 'minRate', 'frequency', 'active', 'createdAt'
+        ])
+        && request.resource.data.active == true
+        && request.resource.data.minRate is number
+        && request.resource.data.minRate >= 0
+        && request.resource.data.frequency in ['instant', 'daily', 'weekly']
+        && (request.resource.data.origin != ''
+          || request.resource.data.destination != ''
+          || request.resource.data.trailerType != 'Any');
+      allow update: if signedIn()
+        && resource.data.memberId == request.auth.uid
+        && request.resource.data.memberId == request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'origin', 'destination', 'trailerType', 'minRate', 'frequency', 'active', 'updatedAt'
+        ])
+        && request.resource.data.minRate is number
+        && request.resource.data.minRate >= 0
+        && request.resource.data.frequency in ['instant', 'daily', 'weekly']
+        && request.resource.data.active is bool;
+      allow delete: if signedIn() && resource.data.memberId == request.auth.uid;
     }
-    match /registrations/{id} {
-      allow read: if isStaff() || (signedIn() && resource.data.memberId == request.auth.uid);
-      allow create, update, delete: if false;
+    match /registrations/{registrationId} {
+      allow list: if isStaff() || (signedIn() && resource.data.memberId == request.auth.uid);
+      // The registration transaction reads this document before creating it,
+      // so a signed-in member may probe their own (possibly missing) record.
+      allow get: if isStaff()
+        || (signedIn() && (resource == null || resource.data.memberId == request.auth.uid));
+      allow create: if signedIn()
+        && registrationId == request.resource.data.eventId + '_' + request.auth.uid
+        && request.resource.data.memberId == request.auth.uid
+        && request.resource.data.keys().hasOnly([
+          'eventId', 'eventTitle', 'memberId', 'name', 'email', 'phone', 'createdAt'
+        ])
+        && exists(eventDoc(request.resource.data.eventId))
+        && request.resource.data.eventTitle
+          == get(eventDoc(request.resource.data.eventId)).data.get('title', '')
+        && (!get(eventDoc(request.resource.data.eventId)).data.get('memberOnly', false)
+          || isActiveMember(request.auth.uid))
+        && (get(eventDoc(request.resource.data.eventId)).data.get('capacity', 0) == 0
+          || get(eventDoc(request.resource.data.eventId)).data.get('registered', 0)
+            < get(eventDoc(request.resource.data.eventId)).data.get('capacity', 0));
+      allow update: if false;
+      allow delete: if isStaff();
     }
     match /enquiries/{id} {
       allow create: if request.resource.data.keys().hasOnly([
