@@ -71,11 +71,10 @@ export const registerForEvent = onCall(async (request) => {
   const registrationId = `${eventId}_${auth.uid}`;
   const registrationRef = db.doc(`registrations/${registrationId}`);
   await db.runTransaction(async (transaction) => {
-    const [event, existing, member] = await Promise.all([
-      transaction.get(eventRef),
-      transaction.get(registrationRef),
-      transaction.get(db.doc(`members/${auth.uid}`))
-    ]);
+    const eventRead = transaction.get(eventRef);
+    const registrationRead = transaction.get(registrationRef);
+    const memberRead = transaction.get(db.doc(`members/${auth.uid}`));
+    const [event, existing, member] = await Promise.all([eventRead, registrationRead, memberRead]);
     if (!event.exists) throw new HttpsError('not-found', 'Event not found.');
     if (existing.exists) throw new HttpsError('already-exists', 'You are already registered for this event.');
     const data = event.data();
