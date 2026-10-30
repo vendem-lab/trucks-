@@ -60,6 +60,7 @@ export default function Fleet() {
 
       <section className="section">
         <div className="container">
+          <h2 className="sr-only">Published member vehicles</h2>
           <div className="fleet-filter">
             <div className="chip-row" role="group" aria-label="Filter by vehicle type">
               <button

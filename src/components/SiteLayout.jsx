@@ -21,7 +21,7 @@ const NAV = [
 export default function SiteLayout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
-  const { session, logout } = useAuth();
+  const { session, authLoading, logout } = useAuth();
 
   useEffect(() => {
     setMenuOpen(false);
@@ -55,7 +55,7 @@ export default function SiteLayout() {
                   Sign out
                 </button>
               )}
-              {!session && (
+              {!authLoading && !session && (
                 <Link to="/membership" className="btn btn-primary btn-block">
                   Join the union
                 </Link>
@@ -71,7 +71,7 @@ export default function SiteLayout() {
                 Sign out
               </button>
             )}
-            {!session && (
+            {!authLoading && !session && (
               <Link to="/membership" className="btn btn-primary btn-sm">
                 Join the union
                 <Icon name="arrowRight" size={15} />
@@ -113,7 +113,7 @@ export default function SiteLayout() {
             <h2>The union</h2>
             <Link to="/about">Who we are</Link>
             <Link to="/about#leadership">Leadership</Link>
-            <Link to="/membership">Join or renew</Link>
+            <Link to={accountLink.to}>{session ? accountLink.label : 'Join or renew'}</Link>
             <Link to="/fleet">Member fleet</Link>
             <Link to="/contact">Contact the office</Link>
           </div>

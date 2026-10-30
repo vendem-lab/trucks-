@@ -147,6 +147,7 @@ export default function Enquiries() {
           </div>
 
           <div className="inbox-detail card">
+            <h2 className="sr-only">Enquiry details</h2>
             {selected ? (
               <>
                 <div className="inbox-detail-head">

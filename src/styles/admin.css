@@ -630,7 +630,7 @@
 .inbox-item-top time {
   flex-shrink: 0;
   font-size: 0.67rem;
-  color: var(--muted-light);
+  color: var(--muted);
 }
 
 .inbox-item-subject {
@@ -649,7 +649,7 @@
 .inbox-item-preview {
   overflow: hidden;
   font-size: 0.73rem;
-  color: var(--muted-light);
+  color: var(--muted);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -852,7 +852,7 @@
   margin: 14px 0 0;
   font-size: 0.74rem;
   line-height: 1.6;
-  color: var(--muted-light);
+  color: var(--muted);
 }
 
 /* ------------------------------------------------------------------

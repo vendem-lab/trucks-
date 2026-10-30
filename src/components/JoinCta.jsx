@@ -8,7 +8,8 @@ import { joinTargetFor } from '../lib/sessionLinks.js';
  * Signed-in members are sent to their portal instead of the application form.
  */
 export default function JoinCta({ className = 'btn btn-primary', iconSize = 16 }) {
-  const { session } = useAuth();
+  const { session, authLoading } = useAuth();
+  if (authLoading) return null;
   const target = joinTargetFor(session);
 
   return (

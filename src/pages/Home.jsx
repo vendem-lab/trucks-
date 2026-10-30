@@ -223,9 +223,7 @@ export default function Home() {
               Every shipper is checked by the union office before a load goes live. Contact details
               unlock when your membership is active.
             </p>
-            <Link to="/membership" className="card-link">
-              Become a member <Icon name="arrowRight" size={14} />
-            </Link>
+            <JoinCta className="card-link" iconSize={14} />
           </div>
         </div>
       </section>

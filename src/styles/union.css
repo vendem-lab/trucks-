@@ -383,7 +383,7 @@
 }
 
 .load-lock-open {
-  color: var(--green);
+  color: #15803d;
 }
 
 .load-board-note {
@@ -2285,7 +2285,7 @@
 
 .profile-save span {
   font-size: 0.74rem;
-  color: var(--muted-light);
+  color: var(--muted);
 }
 
 .profile-aside {
@@ -2957,7 +2957,7 @@
   padding-top: 10px;
   border-top: 1px solid var(--line-soft);
   font-size: 0.7rem;
-  color: var(--muted-light);
+  color: var(--muted);
 }
 
 .fleet-foot span {
