@@ -7,6 +7,7 @@ import { BRAND, ENQUIRY_TYPES, FAQS } from '../config.js';
 import { addMessage } from '../lib/store.js';
 import { isValidEmail } from '../lib/format.js';
 import { useToast } from '../context/ToastContext.jsx';
+import { useSearchParams } from 'react-router-dom';
 
 const INITIAL = {
   name: '',
@@ -18,7 +19,14 @@ const INITIAL = {
 };
 
 export default function Contact() {
-  const [form, setForm] = useState(INITIAL);
+  const [searchParams] = useSearchParams();
+  const [form, setForm] = useState(() => ({
+    ...INITIAL,
+    type: ENQUIRY_TYPES.some((type) => type.id === searchParams.get('type'))
+      ? searchParams.get('type')
+      : INITIAL.type,
+    subject: searchParams.get('subject') || INITIAL.subject
+  }));
   const [errors, setErrors] = useState({});
   const [sent, setSent] = useState(false);
   const { push } = useToast();

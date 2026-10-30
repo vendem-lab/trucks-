@@ -227,9 +227,9 @@ export default function Profile() {
             <div className="vehicle-photo-copy">
               <h3>Public vehicle photo</h3>
               <p>
-                Show visiting customers what you drive. Your photo appears on the public fleet page
-                with your name, vehicle type and region. Your registration, phone, licence and
-                emergency contacts are never shown.
+                Your vehicle type, name, city and region are listed publicly while your membership
+                is active. Add a photo to replace the illustration. Your registration, phone,
+                licence and emergency contacts are never shown.
               </p>
               <input
                 ref={photoInput}

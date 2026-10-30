@@ -25,7 +25,8 @@ service cloud.firestore {
         && data.active == true
         && data.photo is string
         && data.photo.size() < 900000
-        && data.photo.matches('^data:image/(jpeg|png|webp);base64,.+');
+        && (data.photo.matches('^data:image/(jpeg|png|webp);base64,.+')
+          || data.photo.matches('^/fleet/[a-z-]+\\.svg$'));
     }
 
     match /users/{uid} {
@@ -58,9 +59,10 @@ service cloud.firestore {
     }
     match /fleet/{memberId} {
       allow read: if true;
-      allow create: if isSelf(memberId)
-        && isActiveMember(memberId)
-        && validFleet(request.resource.data, memberId);
+      allow create: if isStaff()
+        || (isSelf(memberId)
+          && isActiveMember(memberId)
+          && validFleet(request.resource.data, memberId));
       allow update: if isStaff()
         || (isSelf(memberId)
           && isActiveMember(memberId)

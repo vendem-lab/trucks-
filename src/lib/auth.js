@@ -11,6 +11,7 @@ import {
 import { doc, getDoc, runTransaction, setDoc } from 'firebase/firestore';
 import { DEMO_STAFF } from '../config.js';
 import { firebaseAuth, firebaseDb } from './firebase.js';
+import { photoForVehicleType } from './fleet.js';
 import { addMember, createMemberRecord, getState, updateMember } from './store.js';
 
 const DEMO_MODE = import.meta.env.VITE_USE_DEMO_DATA === 'true';
@@ -77,6 +78,7 @@ export async function approveApplication(applicationId) {
 
     const memberRef = doc(firebaseDb, 'members', uid);
     const userRef = doc(firebaseDb, 'users', uid);
+    const fleetRef = doc(firebaseDb, 'fleet', uid);
     const [memberSnapshot, userSnapshot] = await Promise.all([
       transaction.get(memberRef),
       transaction.get(userRef)
@@ -93,6 +95,18 @@ export async function approveApplication(applicationId) {
     transaction.set(memberRef, { ...application, status: 'active', approvedAt });
     transaction.update(userRef, { memberStatus: 'active' });
     transaction.update(applicationRef, { status: 'approved', approvedAt });
+    transaction.set(fleetRef, {
+      memberId: uid,
+      displayName: application.name || 'Union member',
+      vehicleType: application.vehicleType || 'Dry van',
+      region: application.region || '',
+      city: application.city || '',
+      tier: application.tier || 'independent',
+      joinedAt: application.joinedAt || '',
+      photo: photoForVehicleType(application.vehicleType),
+      active: true,
+      updatedAt: approvedAt
+    }, { merge: true });
     return { ok: true };
   });
 }

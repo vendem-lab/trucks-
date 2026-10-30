@@ -127,6 +127,12 @@ export function startLiveStore(session = null) {
           state = { ...state, [stateKey]: snapshot.exists() ? snapshot.data() : {} };
         } else {
           state = { ...state, [stateKey]: snapshot.docs.map((entry) => ({ id: entry.id, ...entry.data() })) };
+          if (isStaff && stateKey === 'members') {
+            syncPublicFleetRecords(state.members, state.fleet);
+            state = { ...state, fleet: publicFleetForState(state) };
+          } else if (isStaff && stateKey === 'fleet') {
+            state = { ...state, fleet: publicFleetForState(state) };
+          }
         }
         if (firstSnapshot) {
           firstSnapshot = false;
@@ -270,6 +276,49 @@ function syncDemoFleet(draft, member) {
   else draft.fleet.unshift(record);
 }
 
+function publicFleetForState(current) {
+  const published = new Map(
+    (current.fleet || []).map((vehicle) => [vehicle.memberId || vehicle.id, vehicle])
+  );
+  return (current.members || [])
+    .filter((member) => member.status === 'active')
+    .map((member) => ({
+      id: member.id,
+      ...publicFleetFields(member, published.get(member.id))
+    }));
+}
+
+function syncPublicFleetRecords(members, fleet) {
+  const current = new Map((fleet || []).map((vehicle) => [vehicle.memberId || vehicle.id, vehicle]));
+  const activeIds = new Set();
+  const batch = writeBatch(firebaseDb);
+  let changes = 0;
+
+  (members || []).forEach((member) => {
+    if (member.status !== 'active') return;
+    activeIds.add(member.id);
+    const previous = current.get(member.id);
+    const next = publicFleetFields(member, previous);
+    const changed = !previous || Object.entries(next).some(([key, value]) => previous[key] !== value);
+    if (changed) {
+      batch.set(doc(firebaseDb, 'fleet', member.id), next, { merge: true });
+      changes += 1;
+    }
+  });
+
+  (fleet || []).forEach((vehicle) => {
+    const memberId = vehicle.memberId || vehicle.id;
+    if (vehicle.active !== false && !activeIds.has(memberId)) {
+      batch.set(doc(firebaseDb, 'fleet', memberId), { active: false, updatedAt: new Date().toISOString() }, { merge: true });
+      changes += 1;
+    }
+  });
+
+  if (changes) {
+    batch.commit().catch((error) => console.error('Could not sync public fleet listings.', error));
+  }
+}
+
 export function addMember(payload) {
   if (!DEMO_MODE) {
     console.warn('Add members through the Firebase account provisioning flow.');
@@ -387,6 +436,18 @@ export function setMemberStatus(id, status) {
     }
     const fleetRecord = getRecord('fleet', id);
     const fleetUpdatedAt = new Date().toISOString();
+    const currentMember = getRecord('members', id);
+    const updatedMember = {
+      ...currentMember,
+      id,
+      status,
+      ...(status === 'active' ? { approvedAt: fleetUpdatedAt } : {})
+    };
+    const nextFleet = status === 'active'
+      ? { id, ...publicFleetFields(updatedMember, fleetRecord), updatedAt: fleetUpdatedAt }
+      : fleetRecord
+        ? { ...fleetRecord, active: false, updatedAt: fleetUpdatedAt }
+        : null;
     const batch = writeBatch(firebaseDb);
     batch.set(
       doc(firebaseDb, 'members', id),
@@ -394,31 +455,20 @@ export function setMemberStatus(id, status) {
       { merge: true }
     );
     batch.set(doc(firebaseDb, 'users', id), { memberStatus: status }, { merge: true });
-    if (fleetRecord) {
-      batch.set(
-        doc(firebaseDb, 'fleet', id),
-        { active: status === 'active', updatedAt: fleetUpdatedAt },
-        { merge: true }
-      );
+    if (nextFleet) {
+      const { id: _fleetId, ...fleetData } = nextFleet;
+      batch.set(doc(firebaseDb, 'fleet', id), fleetData, { merge: true });
     }
     return batch.commit().then(() => {
-      const member = {
-        ...getRecord('members', id),
-        id,
-        status,
-        ...(status === 'active' ? { approvedAt: fleetUpdatedAt } : {})
-      };
       state = {
         ...state,
-        members: state.members.map((entry) => entry.id === id ? member : entry),
-        fleet: fleetRecord
-          ? state.fleet.map((entry) =>
-              entry.id === id ? { ...entry, active: status === 'active', updatedAt: fleetUpdatedAt } : entry
-            )
+        members: state.members.map((entry) => entry.id === id ? updatedMember : entry),
+        fleet: nextFleet
+          ? [nextFleet, ...state.fleet.filter((entry) => entry.id !== id)]
           : state.fleet
       };
       listeners.forEach((listener) => listener());
-      return member;
+      return updatedMember;
     });
   }
   return commit((draft) => {

@@ -63,7 +63,7 @@ export default function Home() {
     .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
     .slice(0, 3);
   const fleetPreview = [...(state.fleet || [])]
-    .filter((vehicle) => vehicle.active !== false && vehicle.photo)
+    .filter((vehicle) => vehicle.active !== false)
     .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))
     .slice(0, 3);
 
@@ -253,15 +253,15 @@ export default function Home() {
             </div>
           ) : (
             <div className="card">
-              <p>Members are adding their vehicle photos. Check back soon to see the fleet.</p>
+              <p>Active union members will appear here with their vehicle type and region.</p>
             </div>
           )}
 
           <div className="fleet-home-note">
             <Icon name="camera" size={18} />
             <p>
-              Active members can add a vehicle photo from their portal profile. Customers see the
-              vehicle, type and region — never private registration or contact details.
+              Active members are listed with their vehicle type and region. Members can add a photo;
+              private registration and contact details are never shown.
             </p>
             <Link to="/portal/profile" className="card-link">
               Add your vehicle <Icon name="arrowRight" size={14} />

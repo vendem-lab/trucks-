@@ -20,7 +20,7 @@ export default function Fleet() {
   const fleet = useMemo(
     () =>
       [...(state.fleet || [])]
-        .filter((vehicle) => vehicle.active !== false && vehicle.photo)
+        .filter((vehicle) => vehicle.active !== false)
         .sort(newestFirst),
     [state.fleet]
   );
@@ -49,7 +49,7 @@ export default function Fleet() {
       <PageHero
         eyebrow="Member fleet"
         title="The vehicles behind the union."
-        description="Members publish a photo of the truck, bus or tanker they operate. Browse the fleet by vehicle type and region — then join the union to put your own vehicle on the map."
+        description="Browse vehicles operated by active union members, including trucks, buses and tankers. Filter by type or region, then contact the office about availability."
       >
         <div className="fleet-summary">
           <div><strong>{fleet.length}</strong><span>published vehicles</span></div>
@@ -103,15 +103,15 @@ export default function Fleet() {
           ) : (
             <EmptyState
               icon="truck"
-              title={fleet.length ? 'No vehicles match those filters' : 'No vehicle photos published yet'}
+              title={fleet.length ? 'No vehicles match those filters' : 'No member vehicles are listed yet'}
               description={
                 fleet.length
                   ? 'Try another vehicle type or region.'
-                  : 'Active members can add a photo from their portal profile. Once published, their vehicle appears here for customers to see.'
+                  : 'No active member vehicles are currently listed. Contact the union office for transport enquiries.'
               }
               action={
-                <Link to="/membership" className="btn btn-primary">
-                  Join the union <Icon name="arrowRight" size={16} />
+                <Link to="/contact?type=loads&subject=Vehicle%20availability%20request" className="btn btn-primary">
+                  Ask about availability <Icon name="arrowRight" size={16} />
                 </Link>
               }
             />
@@ -120,7 +120,7 @@ export default function Fleet() {
           <div className="inline-note fleet-privacy">
             <Icon name="shield" size={16} />
             <span>
-              We publish only the vehicle photo, member name, vehicle type, city and region.
+              We publish only the vehicle photo or illustration, member name, vehicle type, city and region.
               Registration numbers, phone numbers, licence details and emergency contacts stay private.
             </span>
           </div>
@@ -130,18 +130,18 @@ export default function Fleet() {
       <section className="cta-band">
         <div className="container cta-inner">
           <div>
-            <h2>Put your vehicle on the map.</h2>
+            <h2>Need a vehicle for a job?</h2>
             <p>
-              Join the union, then add a photo from your member portal. Customers can see what you
-              operate, and you keep every private detail off the public page.
+              Tell the union office what you need, where and when. We can help connect your request
+              with an active member who operates the right vehicle.
             </p>
           </div>
           <div className="cta-actions">
-            <Link to="/membership" className="btn btn-primary btn-lg">
-              Join the union <Icon name="arrowRight" size={18} />
+            <Link to="/contact?type=loads&subject=Vehicle%20request" className="btn btn-primary btn-lg">
+              Request a vehicle <Icon name="arrowRight" size={18} />
             </Link>
-            <Link to="/login" className="btn btn-ghost btn-lg">
-              <Icon name="lock" size={17} /> Member login
+            <Link to="/contact" className="btn btn-ghost btn-lg">
+              <Icon name="phone" size={17} /> Contact the union
             </Link>
           </div>
         </div>
