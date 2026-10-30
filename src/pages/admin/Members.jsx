@@ -100,7 +100,7 @@ export default function Members() {
     ? state.alerts.filter((alert) => alert.memberId === detail.id)
     : [];
   const detailFleet = detail
-    ? state.fleet.find((vehicle) => vehicle.memberId === detail.id)
+    ? (state.fleet || []).find((vehicle) => vehicle.memberId === detail.id)
     : null;
   const applications = state.applications || [];
   const pendingApplications = applications.filter((application) => application.status !== 'approved');

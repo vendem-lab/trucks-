@@ -33,7 +33,14 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && parsed.version === 3) return parsed;
+      if (parsed && parsed.version === 3) {
+        return {
+          ...parsed,
+          fleet: Array.isArray(parsed.fleet)
+            ? parsed.fleet
+            : buildDemoFleet(Array.isArray(parsed.members) ? parsed.members : [])
+        };
+      }
       if (parsed && parsed.version === 2) {
         const migrated = {
           ...parsed,
@@ -462,7 +469,7 @@ function validFleetPhoto(photo) {
 }
 
 export function getPublicFleet() {
-  return state.fleet
+  return (state.fleet || [])
     .filter((entry) => entry.active !== false && entry.photo)
     .sort((a, b) => {
       const updated = new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);

@@ -47,7 +47,7 @@ export default function Profile() {
 
   useEffect(() => {
     if (photoTouched) return;
-    const published = state.fleet.find((entry) => entry.memberId === member?.id);
+    const published = (state.fleet || []).find((entry) => entry.memberId === member?.id);
     setPhoto(published?.photo || '');
     setSavedPhoto(published?.photo || '');
   }, [state.fleet, member?.id, photoTouched]);

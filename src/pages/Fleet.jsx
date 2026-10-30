@@ -19,7 +19,7 @@ export default function Fleet() {
 
   const fleet = useMemo(
     () =>
-      [...state.fleet]
+      [...(state.fleet || [])]
         .filter((vehicle) => vehicle.active !== false && vehicle.photo)
         .sort(newestFirst),
     [state.fleet]

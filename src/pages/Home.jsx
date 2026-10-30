@@ -62,7 +62,7 @@ export default function Home() {
     .filter((event) => new Date(event.startDate).getTime() >= Date.now() - 86400000)
     .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
     .slice(0, 3);
-  const fleetPreview = [...state.fleet]
+  const fleetPreview = [...(state.fleet || [])]
     .filter((vehicle) => vehicle.active !== false && vehicle.photo)
     .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))
     .slice(0, 3);

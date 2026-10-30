@@ -6,8 +6,8 @@ A member website and back office for a Ghana-based independent drivers' union. T
 
 ## Main areas
 
-- Public pages for union information, loads, membership applications, news, events, and enquiries.
-- Member portal for profile updates, dues history, and job alerts.
+- Public pages for union information, loads, the member vehicle fleet, membership applications, news, events, and enquiries.
+- Member portal for profile updates, public vehicle photos, dues history, and job alerts.
 - Staff workspace for members, loads, dues, events, news, enquiries, and union settings.
 
 The app does not include a payment gateway. Payment records are managed manually.
@@ -30,7 +30,9 @@ Live mode uses Firebase Authentication (Email/Password and Google) and Cloud Fir
 
 Create the first staff account in Firebase Authentication, then create its `users/{uid}` document through the Firebase Console or Admin SDK with `role: "staff"`, `name`, `email`, and `staffRole`. Public registration cannot grant staff access. New member applications remain pending until staff approve them.
 
-Google sign-in authenticates with Firebase and then requires an existing union profile. A first-time Google user gets a pending profile and must submit the regular membership application; staff approval is still required before portal access. Firestore rules protect member profile updates, load claims, event registration, job-alert management, dues payments, and member approval/status changes. Deleting member accounts and direct staff creation of member accounts are disabled. Public event registration requires sign-in. Payment integration is not configured.
+Google sign-in authenticates with Firebase and then requires an existing union profile. A first-time Google user gets a pending profile and must submit the regular membership application; staff approval is still required before portal access. Firestore rules protect member profile updates, public vehicle photos, load claims, event registration, job-alert management, dues payments, and member approval/status changes. Deleting member accounts and direct staff creation of member accounts are disabled. Public event registration requires sign-in. Payment integration is not configured.
+
+Active members can publish one compressed JPEG vehicle photo from their profile. The photo is stored in the public `fleet/{uid}` collection with only the member's display name, vehicle type, city, region, tier, join date, and photo. Registration numbers, phone numbers, licence details, and emergency contacts are never copied into the public document. Staff can remove a published photo from the member detail view.
 
 Before entering real member information, review and verify `firestore.rules` against the Firebase Emulator Suite. Deploy the rules from the project root with:
 
@@ -48,6 +50,8 @@ src/
   lib/
     seed.js              local demo data
     store.js             demo store and Firestore-backed data actions
+    fleet.js             public fleet records and demo vehicle illustrations
+    image.js             client-side vehicle photo compression
     union.js             dues summaries, event dates, and alert matching
     auth.js              Firebase and demo authentication flows
     firebase.js          Firebase client initialization
