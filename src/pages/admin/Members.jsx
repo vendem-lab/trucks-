@@ -10,7 +10,7 @@ import {
   REGIONS,
   TIERS,
   TIER_BY_ID,
-  TRAILER_TYPES
+  VEHICLE_TYPES
 } from '../../config.js';
 import {
   addMember,
@@ -402,7 +402,7 @@ export default function Members() {
             </Field>
             <Field label="Vehicle type" htmlFor="member-vehicle">
               <select id="member-vehicle" value={form.vehicleType} onChange={update('vehicleType')}>
-                {TRAILER_TYPES.map((type) => (
+                {VEHICLE_TYPES.map((type) => (
                   <option key={type} value={type}>{type}</option>
                 ))}
               </select>

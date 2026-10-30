@@ -6,7 +6,7 @@ import EmptyState from '../components/EmptyState.jsx';
 import Field from '../components/Field.jsx';
 import Icon from '../components/Icon.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
-import { ALERT_FREQUENCIES, TRAILER_TYPES } from '../config.js';
+import { ALERT_FREQUENCIES, VEHICLE_TYPES } from '../config.js';
 import { addAlert, claimLoad, deleteAlert, updateAlert, useStore } from '../lib/store.js';
 import { countAlertMatches } from '../lib/union.js';
 import { useAuth } from '../context/authContext.js';
@@ -105,7 +105,7 @@ export default function Loads() {
       return;
     }
     if (!alertForm.origin.trim() && !alertForm.destination.trim() && alertForm.trailerType === 'Any') {
-      setAlertError('Add at least an origin, a destination or a trailer type.');
+      setAlertError('Add at least an origin, a destination or a vehicle type.');
       return;
     }
     try {
@@ -215,7 +215,7 @@ export default function Loads() {
               </div>
             </div>
             <div className="filter-group">
-              <span className="filter-label"><Icon name="filter" size={13} /> Trailer</span>
+              <span className="filter-label"><Icon name="filter" size={13} /> Vehicle type</span>
               <div className="chip-row">
                 <button
                   type="button"
@@ -224,7 +224,7 @@ export default function Loads() {
                 >
                   Any
                 </button>
-                {TRAILER_TYPES.map((type) => (
+                {VEHICLE_TYPES.map((type) => (
                   <button
                     key={type}
                     type="button"
@@ -285,7 +285,7 @@ export default function Loads() {
               <EmptyState
                 icon="clipboard"
                 title="No loads match those filters"
-                description="Try clearing the search or choosing a different trailer type. New loads are posted most weekday mornings."
+                description="Try clearing the search or choosing a different vehicle type. New loads are posted most weekday mornings."
                 action={
                   <button
                     type="button"
@@ -327,7 +327,7 @@ export default function Loads() {
               posted. Choose instant alerts or a daily digest by SMS, email or both.
             </p>
             <ul className="check-list">
-              <li><Icon name="check" size={16} /> Match by route, trailer type and minimum rate</li>
+              <li><Icon name="check" size={16} /> Match by route, vehicle type and minimum rate</li>
               <li><Icon name="check" size={16} /> Instant, daily or weekly delivery</li>
               <li><Icon name="check" size={16} /> Pause any alert without deleting it</li>
             </ul>
@@ -371,14 +371,14 @@ export default function Loads() {
                       placeholder="e.g. Kumasi"
                     />
                   </Field>
-                  <Field label="Trailer type" htmlFor="alert-trailer">
+                  <Field label="Vehicle type" htmlFor="alert-trailer">
                     <select
                       id="alert-trailer"
                       value={alertForm.trailerType}
                       onChange={updateAlertForm('trailerType')}
                     >
-                      <option value="Any">Any trailer</option>
-                      {TRAILER_TYPES.map((type) => (
+                      <option value="Any">Any vehicle</option>
+                      {VEHICLE_TYPES.map((type) => (
                         <option key={type} value={type}>{type}</option>
                       ))}
                     </select>

@@ -155,7 +155,12 @@ export const REGIONS = [
   'Western North'
 ];
 
-export const TRAILER_TYPES = [
+export const VEHICLE_TYPES = [
+  '1-tonne truck',
+  '2-tonne truck',
+  '3-tonne truck',
+  '4-tonne truck',
+  '5-tonne truck',
   'Dry van',
   'Reefer',
   'Flatbed',
@@ -165,6 +170,9 @@ export const TRAILER_TYPES = [
   'Low bed',
   'Bus / passenger'
 ];
+
+// Kept as an alias for existing load and alert data that uses trailerType.
+export const TRAILER_TYPES = VEHICLE_TYPES;
 
 export const DUES_GRACE_DAYS = 14;
 

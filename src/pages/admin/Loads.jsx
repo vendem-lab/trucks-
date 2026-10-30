@@ -5,7 +5,7 @@ import Field from '../../components/Field.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
-import { LOAD_STATUSES, TRAILER_TYPES } from '../../config.js';
+import { LOAD_STATUSES, VEHICLE_TYPES } from '../../config.js';
 import {
   addLoad,
   deleteLoad,
@@ -222,10 +222,10 @@ export default function LoadsAdmin() {
           <select
             value={trailerFilter}
             onChange={(event) => setTrailerFilter(event.target.value)}
-            aria-label="Filter by trailer"
+            aria-label="Filter by vehicle type"
           >
-            <option value="all">All trailers</option>
-            {TRAILER_TYPES.map((type) => (
+            <option value="all">All vehicle types</option>
+            {VEHICLE_TYPES.map((type) => (
               <option key={type} value={type}>{type}</option>
             ))}
           </select>
@@ -248,7 +248,7 @@ export default function LoadsAdmin() {
                   <th>Reference</th>
                   <th>Shipper</th>
                   <th>Route</th>
-                  <th>Trailer</th>
+                  <th>Vehicle type</th>
                   <th>Pickup</th>
                   <th>Rate</th>
                   <th>Status</th>
@@ -386,9 +386,9 @@ export default function LoadsAdmin() {
                 <span>t</span>
               </div>
             </Field>
-            <Field label="Trailer type" htmlFor="load-trailer">
+            <Field label="Vehicle type" htmlFor="load-trailer">
               <select id="load-trailer" value={form.trailerType} onChange={update('trailerType')}>
-                {TRAILER_TYPES.map((type) => (
+                {VEHICLE_TYPES.map((type) => (
                   <option key={type} value={type}>{type}</option>
                 ))}
               </select>
@@ -476,7 +476,7 @@ export default function LoadsAdmin() {
             <dl className="detail-grid">
               <div><dt>Route</dt><dd>{detail.origin} → {detail.destination}</dd></div>
               <div><dt>Distance</dt><dd>{detail.distanceKm} km</dd></div>
-              <div><dt>Trailer</dt><dd>{detail.trailerType}</dd></div>
+              <div><dt>Vehicle type</dt><dd>{detail.trailerType}</dd></div>
               <div><dt>Weight</dt><dd>{detail.weightTons} t</dd></div>
               <div><dt>Pickup</dt><dd>{formatDate(detail.pickupDate)}</dd></div>
               <div><dt>Delivery</dt><dd>{formatDate(detail.deliveryDate)}</dd></div>

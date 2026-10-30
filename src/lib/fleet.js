@@ -1,4 +1,9 @@
 const PHOTO_BY_TYPE = {
+  '1-tonne truck': '/fleet/light-truck.svg',
+  '2-tonne truck': '/fleet/light-truck.svg',
+  '3-tonne truck': '/fleet/light-truck.svg',
+  '4-tonne truck': '/fleet/light-truck.svg',
+  '5-tonne truck': '/fleet/light-truck.svg',
   'Dry van': '/fleet/dry-van.svg',
   Reefer: '/fleet/reefer.svg',
   Flatbed: '/fleet/flatbed.svg',

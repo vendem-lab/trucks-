@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import Field from '../../components/Field.jsx';
 import Icon from '../../components/Icon.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
-import { REGIONS, TIER_BY_ID, TRAILER_TYPES } from '../../config.js';
+import { REGIONS, TIER_BY_ID, VEHICLE_TYPES } from '../../config.js';
 import { useAuth } from '../../context/authContext.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import {
@@ -200,7 +200,7 @@ export default function Profile() {
           <div className="form-grid">
             <Field label="Vehicle type" htmlFor="profile-vehicle" required>
               <select id="profile-vehicle" value={form.vehicleType} onChange={update('vehicleType')}>
-                {TRAILER_TYPES.map((type) => (
+                {VEHICLE_TYPES.map((type) => (
                   <option key={type} value={type}>{type}</option>
                 ))}
               </select>

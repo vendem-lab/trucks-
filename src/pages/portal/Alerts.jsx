@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Field from '../../components/Field.jsx';
 import Icon from '../../components/Icon.jsx';
-import { ALERT_FREQUENCIES, TRAILER_TYPES } from '../../config.js';
+import { ALERT_FREQUENCIES, VEHICLE_TYPES } from '../../config.js';
 import { useAuth } from '../../context/authContext.js';
 import { useToast } from '../../context/ToastContext.jsx';
 import { addAlert, deleteAlert, updateAlert, useStore } from '../../lib/store.js';
@@ -50,7 +50,7 @@ export default function Alerts() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!form.origin.trim() && !form.destination.trim() && form.trailerType === 'Any') {
-      setError('Add at least an origin, a destination or a trailer type.');
+      setError('Add at least an origin, a destination or a vehicle type.');
       return;
     }
     try {
@@ -103,14 +103,14 @@ export default function Alerts() {
                     placeholder="e.g. Kumasi"
                   />
                 </Field>
-                <Field label="Trailer type" htmlFor="portal-alert-trailer">
+                <Field label="Vehicle type" htmlFor="portal-alert-trailer">
                   <select
                     id="portal-alert-trailer"
                     value={form.trailerType}
                     onChange={update('trailerType')}
                   >
-                    <option value="Any">Any trailer</option>
-                    {TRAILER_TYPES.map((type) => (
+                    <option value="Any">Any vehicle</option>
+                    {VEHICLE_TYPES.map((type) => (
                       <option key={type} value={type}>{type}</option>
                     ))}
                   </select>

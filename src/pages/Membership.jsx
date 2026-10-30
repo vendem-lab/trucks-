@@ -11,7 +11,7 @@ import {
   REGIONS,
   TIERS,
   TIER_BY_ID,
-  TRAILER_TYPES
+  VEHICLE_TYPES
 } from '../config.js';
 import { createMemberAccount, submitMemberApplication } from '../lib/auth.js';
 import { getMemberByEmail, isDemoMode } from '../lib/store.js';
@@ -411,7 +411,7 @@ export default function Membership() {
                     </Field>
                     <Field label="Vehicle type" htmlFor="join-vehicle" required>
                       <select id="join-vehicle" value={form.vehicleType} onChange={update('vehicleType')}>
-                        {TRAILER_TYPES.map((type) => (
+                        {VEHICLE_TYPES.map((type) => (
                           <option key={type} value={type}>{type}</option>
                         ))}
                       </select>

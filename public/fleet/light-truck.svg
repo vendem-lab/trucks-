@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Light duty truck illustration">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e6f5f2"/>
+      <stop offset="1" stop-color="#f8fafc"/>
+    </linearGradient>
+    <linearGradient id="box" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff"/>
+      <stop offset="1" stop-color="#dfe6ee"/>
+    </linearGradient>
+    <linearGradient id="cab" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#115e59"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="400" fill="url(#sky)"/>
+  <circle cx="520" cy="82" r="42" fill="#f3c969" opacity=".55"/>
+  <path d="M0 296h640v104H0z" fill="#e4e8ef"/>
+  <path d="M0 296h640" stroke="#cfd8e3" stroke-width="4"/>
+  <path d="M42 360h556" stroke="#c2cbd8" stroke-width="3" stroke-dasharray="26 22" opacity=".8"/>
+  <g fill="#16202f">
+    <circle cx="176" cy="301" r="30"/>
+    <circle cx="176" cy="301" r="13" fill="#cfd8e3"/>
+    <circle cx="437" cy="301" r="30"/>
+    <circle cx="437" cy="301" r="13" fill="#cfd8e3"/>
+  </g>
+  <path d="M104 170a12 12 0 0 1 12-12h242a12 12 0 0 1 12 12v118H104z" fill="url(#box)" stroke="#b7c4d3" stroke-width="4"/>
+  <path d="M370 218h92l57 58v24H366v-70a12 12 0 0 1 4-12z" fill="url(#cab)"/>
+  <path d="M391 233h61l35 38h-96z" fill="#c8eeea"/>
+  <path d="M474 276h37v13h-37z" fill="#f3c969"/>
+  <path d="M91 286h437v17H91z" fill="#0f766e"/>
+  <path d="M119 181h219v13H119z" fill="#fff" opacity=".72"/>
+</svg>
