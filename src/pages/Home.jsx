@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
 import LoadCard from '../components/LoadCard.jsx';
+import FleetCard from '../components/FleetCard.jsx';
 import Logo from '../components/Logo.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import { BRAND, MEMBER_BENEFITS, PILLARS, NEWS_CATEGORIES, EVENT_TYPES } from '../config.js';
@@ -60,6 +61,10 @@ export default function Home() {
   const upcoming = [...state.events]
     .filter((event) => new Date(event.startDate).getTime() >= Date.now() - 86400000)
     .sort((a, b) => new Date(a.startDate) - new Date(b.startDate))
+    .slice(0, 3);
+  const fleetPreview = [...state.fleet]
+    .filter((vehicle) => vehicle.active !== false && vehicle.photo)
+    .sort((a, b) => new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0))
     .slice(0, 3);
 
   return (
@@ -221,6 +226,45 @@ export default function Home() {
             </p>
             <Link to="/membership" className="card-link">
               Become a member <Icon name="arrowRight" size={14} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="section fleet-home">
+        <div className="container">
+          <div className="section-head">
+            <div>
+              <span className="eyebrow">Member fleet</span>
+              <h2>See what our members drive</h2>
+            </div>
+            <Link to="/fleet" className="btn btn-outline">
+              Browse the fleet <Icon name="arrowRight" size={16} />
+            </Link>
+          </div>
+
+          {state.loading ? (
+            <div className="card"><p>Loading the member fleet…</p></div>
+          ) : fleetPreview.length ? (
+            <div className="fleet-grid fleet-grid-preview">
+              {fleetPreview.map((vehicle) => (
+                <FleetCard key={vehicle.id} vehicle={vehicle} />
+              ))}
+            </div>
+          ) : (
+            <div className="card">
+              <p>Members are adding their vehicle photos. Check back soon to see the fleet.</p>
+            </div>
+          )}
+
+          <div className="fleet-home-note">
+            <Icon name="camera" size={18} />
+            <p>
+              Active members can add a vehicle photo from their portal profile. Customers see the
+              vehicle, type and region — never private registration or contact details.
+            </p>
+            <Link to="/portal/profile" className="card-link">
+              Add your vehicle <Icon name="arrowRight" size={14} />
             </Link>
           </div>
         </div>

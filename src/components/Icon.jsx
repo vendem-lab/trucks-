@@ -387,6 +387,12 @@ const PATHS = {
       <rect width="12" height="20" x="6" y="2" rx="2" />
       <path d="M12 18h.01" />
     </>
+  ),
+  camera: (
+    <>
+      <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z" />
+      <circle cx="12" cy="13" r="3" />
+    </>
   )
 };
 

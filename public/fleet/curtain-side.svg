@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 400" role="img" aria-label="Curtain-side truck illustration">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#e6f5f2"/>
+      <stop offset="1" stop-color="#f8fafc"/>
+    </linearGradient>
+    <linearGradient id="tarp" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#eef4ff"/>
+      <stop offset="1" stop-color="#c9d7ea"/>
+    </linearGradient>
+    <linearGradient id="cab" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0f766e"/>
+      <stop offset="1" stop-color="#115e59"/>
+    </linearGradient>
+  </defs>
+  <rect width="640" height="400" fill="url(#sky)"/>
+  <circle cx="520" cy="82" r="42" fill="#f3c969" opacity=".55"/>
+  <path d="M0 296h640v104H0z" fill="#e4e8ef"/>
+  <path d="M0 296h640" stroke="#cfd8e3" stroke-width="4"/>
+  <path d="M40 360h560" stroke="#c2cbd8" stroke-width="3" stroke-dasharray="26 22" opacity=".8"/>
+  <g fill="#16202f">
+    <circle cx="140" cy="292" r="30"/>
+    <circle cx="235" cy="292" r="30"/>
+    <circle cx="505" cy="292" r="30"/>
+    <circle cx="548" cy="292" r="30"/>
+  </g>
+  <g fill="#98a2b3">
+    <circle cx="140" cy="292" r="12"/>
+    <circle cx="235" cy="292" r="12"/>
+    <circle cx="505" cy="292" r="12"/>
+    <circle cx="548" cy="292" r="12"/>
+  </g>
+  <g>
+    <rect x="60" y="170" width="360" height="116" rx="8" fill="url(#tarp)" stroke="#b9c8dc" stroke-width="3"/>
+    <path d="M60 184q30-12 60 0t60 0 60 0 60 0 60 0 60 0" fill="none" stroke="#a9bbd3" stroke-width="3" opacity=".8"/>
+    <path d="M100 170v116M160 170v116M220 170v116M280 170v116M340 170v116M400 170v116" stroke="#7c8fa8" stroke-width="4"/>
+    <path d="M100 262h300" stroke="#7c8fa8" stroke-width="3" opacity=".6"/>
+    <rect x="60" y="170" width="360" height="14" rx="7" fill="#115e59" opacity=".22"/>
+    <rect x="70" y="268" width="340" height="12" rx="4" fill="#c2cbd8"/>
+    <rect x="74" y="244" width="16" height="28" rx="3" fill="#115e59"/>
+    <circle cx="410" cy="246" r="5" fill="#f3c969"/>
+    <rect x="414" y="250" width="18" height="12" fill="#115e59"/>
+  </g>
+  <g>
+    <path d="M430 286v-68q0-10 10-10h58l36 42v36z" fill="url(#cab)"/>
+    <path d="M500 214h20l26 30h-46z" fill="#bfe3de"/>
+    <rect x="430" y="266" width="104" height="20" rx="6" fill="#0b3f3b"/>
+    <rect x="520" y="248" width="24" height="18" rx="4" fill="#f3c969"/>
+    <rect x="440" y="222" width="44" height="24" rx="5" fill="#0b1220" opacity=".18"/>
+  </g>
+</svg>

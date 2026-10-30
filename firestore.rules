@@ -16,6 +16,17 @@ service cloud.firestore {
         && exists(memberDoc(uid))
         && get(memberDoc(uid)).data.status == 'active';
     }
+    function validFleet(data, memberId) {
+      return data.keys().hasOnly([
+          'memberId', 'displayName', 'vehicleType', 'region', 'city',
+          'tier', 'joinedAt', 'photo', 'active', 'updatedAt'
+        ])
+        && data.memberId == memberId
+        && data.active == true
+        && data.photo is string
+        && data.photo.size() < 900000
+        && data.photo.matches('^data:image/(jpeg|png|webp);base64,.+');
+    }
 
     match /users/{uid} {
       allow create: if isSelf(uid)
@@ -44,6 +55,17 @@ service cloud.firestore {
             'licenseNumber', 'emergencyName', 'emergencyPhone', 'notes', 'updatedAt'
           ]));
       allow delete: if isStaff();
+    }
+    match /fleet/{memberId} {
+      allow read: if true;
+      allow create: if isSelf(memberId)
+        && isActiveMember(memberId)
+        && validFleet(request.resource.data, memberId);
+      allow update: if isStaff()
+        || (isSelf(memberId)
+          && isActiveMember(memberId)
+          && validFleet(request.resource.data, memberId));
+      allow delete: if isStaff() || isSelf(memberId);
     }
     match /applications/{id} {
       allow create: if signedIn()

@@ -16,6 +16,7 @@ import {
   addMember,
   deleteMember,
   isDemoMode,
+  removeFleetPhoto,
   setMemberStatus,
   updateMember,
   useStore
@@ -98,6 +99,9 @@ export default function Members() {
   const detailAlerts = detail
     ? state.alerts.filter((alert) => alert.memberId === detail.id)
     : [];
+  const detailFleet = detail
+    ? state.fleet.find((vehicle) => vehicle.memberId === detail.id)
+    : null;
   const applications = state.applications || [];
   const pendingApplications = applications.filter((application) => application.status !== 'approved');
 
@@ -499,6 +503,35 @@ export default function Members() {
               <div><dt>Emergency phone</dt><dd>{detail.emergencyPhone || '—'}</dd></div>
               <div><dt>Alerts</dt><dd>{detailAlerts.length} saved</dd></div>
             </dl>
+
+            {detailFleet && (
+              <div className="member-fleet-panel">
+                <img
+                  src={detailFleet.photo}
+                  alt={`${detailFleet.vehicleType} operated by ${detailFleet.displayName}`}
+                />
+                <div>
+                  <strong>Public fleet photo</strong>
+                  <span>
+                    {detailFleet.active === false
+                      ? 'Hidden while this membership is not active.'
+                      : 'Visible on the public fleet page.'}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => {
+                    const result = removeFleetPhoto(detail.id);
+                    Promise.resolve(result)
+                      .then(() => push('Vehicle photo removed from the public fleet.', 'success'))
+                      .catch((error) => push(error.message || 'Could not remove the vehicle photo.', 'error'));
+                  }}
+                >
+                  <Icon name="trash" size={14} /> Remove photo
+                </button>
+              </div>
+            )}
 
             <div className="member-dues-panel">
               <div className="member-dues-head">

@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { buildSeed } from './seed.js';
+import { buildDemoFleet, demoFleetEntry, publicFleetFields } from './fleet.js';
 import {
   addDoc,
   collection,
@@ -24,15 +25,24 @@ const DEMO_MODE = import.meta.env.VITE_USE_DEMO_DATA === 'true';
 function loadState() {
   if (!DEMO_MODE) {
     return {
-      version: 2, members: [], loads: [], dues: [], news: [], events: [], alerts: [],
-      messages: [], registrations: [], settings: {}, counters: {}, loading: true
+      version: 3, members: [], loads: [], dues: [], news: [], events: [], alerts: [],
+      messages: [], registrations: [], fleet: [], settings: {}, counters: {}, loading: true
     };
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && parsed.version === 2) return parsed;
+      if (parsed && parsed.version === 3) return parsed;
+      if (parsed && parsed.version === 2) {
+        const migrated = {
+          ...parsed,
+          version: 3,
+          fleet: buildDemoFleet(Array.isArray(parsed.members) ? parsed.members : [])
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
+        return migrated;
+      }
     }
   } catch (error) {
     console.warn('Union data could not be read; starting from the demo seed.', error);
@@ -49,7 +59,7 @@ function loadState() {
 let state = loadState();
 let liveUnsubscribe = null;
 
-const COLLECTIONS = ['members', 'loads', 'dues', 'news', 'events', 'alerts'];
+const COLLECTIONS = ['members', 'loads', 'dues', 'news', 'events', 'alerts', 'fleet'];
 
 export function startLiveStore(session = null) {
   if (DEMO_MODE) return () => {};
@@ -60,6 +70,7 @@ export function startLiveStore(session = null) {
     members: [],
     dues: [],
     alerts: [],
+    fleet: [],
     registrations: [],
     enquiries: [],
     messages: [],
@@ -73,7 +84,7 @@ export function startLiveStore(session = null) {
   const privateCollections = ['members', 'dues', 'alerts', 'applications', 'registrations'];
   const allowedCollections = isStaff
     ? [...COLLECTIONS, 'applications', 'registrations']
-    : ['loads', 'news', 'events', ...(session?.memberId ? ['members', 'dues', 'alerts', 'applications', 'registrations'] : [])];
+    : ['loads', 'news', 'events', 'fleet', ...(session?.memberId ? ['members', 'dues', 'alerts', 'applications', 'registrations'] : [])];
 
   const subscriptions = allowedCollections.map((name) => {
     const ref = collection(firebaseDb, name);
@@ -234,6 +245,24 @@ function today() {
    Members
 ------------------------------------------------------------------ */
 
+function syncDemoFleet(draft, member) {
+  if (!Array.isArray(draft.fleet)) draft.fleet = [];
+  const index = draft.fleet.findIndex((entry) => entry.memberId === member.id);
+  if (member.status !== 'active') {
+    if (index >= 0) {
+      draft.fleet[index] = {
+        ...draft.fleet[index],
+        active: false,
+        updatedAt: new Date().toISOString()
+      };
+    }
+    return;
+  }
+  const record = demoFleetEntry(member, index >= 0 ? draft.fleet[index] : null);
+  if (index >= 0) draft.fleet[index] = record;
+  else draft.fleet.unshift(record);
+}
+
 export function addMember(payload) {
   if (!DEMO_MODE) {
     console.warn('Add members through the Firebase account provisioning flow.');
@@ -262,6 +291,7 @@ export function addMember(payload) {
       createdAt: new Date().toISOString()
     };
     draft.members.unshift(member);
+    if (member.status === 'active') syncDemoFleet(draft, member);
     return member;
   });
 }
@@ -303,14 +333,29 @@ export function updateMember(id, patch) {
     const clean = pickFields(patch, PROFILE_FIELDS);
     if (!Object.keys(clean).length) return Promise.reject(new Error('Provide the profile details to save.'));
     const updatedAt = new Date().toISOString();
+    const currentMember = getRecord('members', id);
+    const member = { ...currentMember, ...clean, updatedAt, id };
+    const fleetRecord = getRecord('fleet', id);
+    const nextFleet = fleetRecord && member.status === 'active'
+      ? { id, ...publicFleetFields(member, fleetRecord), updatedAt }
+      : null;
     const batch = writeBatch(firebaseDb);
     batch.set(doc(firebaseDb, 'members', id), { ...clean, updatedAt }, { merge: true });
     if (typeof clean.name === 'string') {
       batch.set(doc(firebaseDb, 'users', uid), { name: clean.name }, { merge: true });
     }
+    if (nextFleet) {
+      const { id: _fleetId, ...fleetData } = nextFleet;
+      batch.set(doc(firebaseDb, 'fleet', id), fleetData, { merge: true });
+    }
     return batch.commit().then(() => {
-      const member = { ...getRecord('members', id), ...clean, updatedAt, id };
-      state = { ...state, members: state.members.map((entry) => entry.id === id ? member : entry) };
+      state = {
+        ...state,
+        members: state.members.map((entry) => entry.id === id ? member : entry),
+        fleet: nextFleet
+          ? state.fleet.map((entry) => entry.id === id ? nextFleet : entry)
+          : state.fleet
+      };
       listeners.forEach((listener) => listener());
       return member;
     });
@@ -323,6 +368,7 @@ export function updateMember(id, patch) {
       memberNumber: member.memberNumber,
       email: String(patch.email ?? member.email).trim().toLowerCase()
     });
+    syncDemoFleet(draft, member);
     return member;
   });
 }
@@ -332,21 +378,38 @@ export function setMemberStatus(id, status) {
     if (!['active', 'suspended', 'expired', 'pending'].includes(status)) {
       return Promise.reject(new Error('Choose a valid membership status.'));
     }
+    const fleetRecord = getRecord('fleet', id);
+    const fleetUpdatedAt = new Date().toISOString();
     const batch = writeBatch(firebaseDb);
     batch.set(
       doc(firebaseDb, 'members', id),
-      { status, ...(status === 'active' ? { approvedAt: new Date().toISOString() } : {}) },
+      { status, ...(status === 'active' ? { approvedAt: fleetUpdatedAt } : {}) },
       { merge: true }
     );
     batch.set(doc(firebaseDb, 'users', id), { memberStatus: status }, { merge: true });
+    if (fleetRecord) {
+      batch.set(
+        doc(firebaseDb, 'fleet', id),
+        { active: status === 'active', updatedAt: fleetUpdatedAt },
+        { merge: true }
+      );
+    }
     return batch.commit().then(() => {
       const member = {
         ...getRecord('members', id),
         id,
         status,
-        ...(status === 'active' ? { approvedAt: new Date().toISOString() } : {})
+        ...(status === 'active' ? { approvedAt: fleetUpdatedAt } : {})
       };
-      state = { ...state, members: state.members.map((entry) => entry.id === id ? member : entry) };
+      state = {
+        ...state,
+        members: state.members.map((entry) => entry.id === id ? member : entry),
+        fleet: fleetRecord
+          ? state.fleet.map((entry) =>
+              entry.id === id ? { ...entry, active: status === 'active', updatedAt: fleetUpdatedAt } : entry
+            )
+          : state.fleet
+      };
       listeners.forEach((listener) => listener());
       return member;
     });
@@ -356,6 +419,7 @@ export function setMemberStatus(id, status) {
     if (!member) return null;
     member.status = status;
     if (status === 'active') member.approvedAt = new Date().toISOString();
+    syncDemoFleet(draft, member);
     return member;
   });
 }
@@ -373,6 +437,7 @@ export function deleteMember(id) {
     draft.dues = draft.dues.filter((entry) => entry.memberId !== id);
     draft.alerts = draft.alerts.filter((entry) => entry.memberId !== id);
     draft.registrations = draft.registrations.filter((entry) => entry.memberId !== id);
+    draft.fleet = draft.fleet.filter((entry) => entry.memberId !== id);
     return true;
   });
 }
@@ -384,6 +449,102 @@ export function getMemberById(id) {
 export function getMemberByEmail(email) {
   const value = String(email || '').trim().toLowerCase();
   return state.members.find((entry) => entry.email.toLowerCase() === value) || null;
+}
+
+/* ------------------------------------------------------------------
+   Public fleet
+----------------------------------------------------------------- */
+
+const MAX_FLEET_PHOTO_LENGTH = 900000;
+
+function validFleetPhoto(photo) {
+  return String(photo || '').startsWith('data:image/');
+}
+
+export function getPublicFleet() {
+  return state.fleet
+    .filter((entry) => entry.active !== false && entry.photo)
+    .sort((a, b) => {
+      const updated = new Date(b.updatedAt || 0) - new Date(a.updatedAt || 0);
+      if (updated) return updated;
+      return String(a.displayName || '').localeCompare(String(b.displayName || ''));
+    });
+}
+
+export function saveFleetPhoto(memberId, photo) {
+  const value = String(photo || '');
+  if (!validFleetPhoto(value)) {
+    return Promise.reject(new Error('Choose a vehicle photo to publish.'));
+  }
+  if (value.length > MAX_FLEET_PHOTO_LENGTH) {
+    return Promise.reject(new Error('That photo is too large. Try a smaller image.'));
+  }
+
+  if (!DEMO_MODE) {
+    const uid = firebaseAuth.currentUser?.uid;
+    if (!uid) return Promise.reject(new Error('Sign in again to publish your vehicle photo.'));
+    if (uid !== memberId) return Promise.reject(new Error('You can only publish a photo for your own vehicle.'));
+    const member = getRecord('members', memberId);
+    if (!member) return Promise.reject(new Error('Your member record could not be found.'));
+    if (member.status !== 'active') {
+      return Promise.reject(new Error('Your membership must be active before you can publish a photo.'));
+    }
+    const existing = getRecord('fleet', memberId);
+    const record = {
+      id: memberId,
+      ...publicFleetFields(member, existing),
+      photo: value,
+      active: true,
+      updatedAt: new Date().toISOString()
+    };
+    const { id: _id, ...data } = record;
+    return setDoc(doc(firebaseDb, 'fleet', memberId), data)
+      .then(() => {
+        state = {
+          ...state,
+          fleet: [record, ...state.fleet.filter((entry) => entry.id !== memberId)]
+        };
+        listeners.forEach((listener) => listener());
+        return record;
+      })
+      .catch((error) => {
+        console.error('Could not publish the vehicle photo.', error);
+        throw error;
+      });
+  }
+
+  return commit((draft) => {
+    const member = draft.members.find((entry) => entry.id === memberId);
+    if (!member) throw new Error('Your member record could not be found.');
+    if (member.status !== 'active') {
+      throw new Error('Your membership must be active before you can publish a photo.');
+    }
+    if (!Array.isArray(draft.fleet)) draft.fleet = [];
+    const existing = draft.fleet.find((entry) => entry.memberId === memberId) || null;
+    const record = { ...demoFleetEntry(member, existing), photo: value };
+    draft.fleet = [record, ...draft.fleet.filter((entry) => entry.memberId !== memberId)];
+    return record;
+  });
+}
+
+export function removeFleetPhoto(memberId) {
+  if (!DEMO_MODE) {
+    if (!firebaseAuth.currentUser?.uid) {
+      return Promise.reject(new Error('Sign in again to remove your vehicle photo.'));
+    }
+    return deleteDoc(doc(firebaseDb, 'fleet', memberId)).then(() => {
+      state = {
+        ...state,
+        fleet: state.fleet.filter((entry) => entry.id !== memberId && entry.memberId !== memberId)
+      };
+      listeners.forEach((listener) => listener());
+      return true;
+    });
+  }
+  return commit((draft) => {
+    draft.fleet = (draft.fleet || []).filter((entry) => entry.memberId !== memberId);
+    return true;
+  });
 }
 
 /* ------------------------------------------------------------------

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import Field from '../../components/Field.jsx';
 import Icon from '../../components/Icon.jsx';
@@ -6,7 +6,14 @@ import StatusBadge from '../../components/StatusBadge.jsx';
 import { REGIONS, TIER_BY_ID, TRAILER_TYPES } from '../../config.js';
 import { useAuth } from '../../context/authContext.js';
 import { useToast } from '../../context/ToastContext.jsx';
-import { isDemoMode, updateMember, useStore } from '../../lib/store.js';
+import {
+  isDemoMode,
+  removeFleetPhoto,
+  saveFleetPhoto,
+  updateMember,
+  useStore
+} from '../../lib/store.js';
+import { compressVehiclePhoto } from '../../lib/image.js';
 import { changeMemberPassword } from '../../lib/auth.js';
 import { formatDate, isValidPhone } from '../../lib/format.js';
 
@@ -31,10 +38,24 @@ export default function Profile() {
   }));
   const [errors, setErrors] = useState({});
   const [saved, setSaved] = useState(false);
+  const [photo, setPhoto] = useState('');
+  const [savedPhoto, setSavedPhoto] = useState('');
+  const [photoTouched, setPhotoTouched] = useState(false);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const photoInput = useRef(null);
+
+  useEffect(() => {
+    if (photoTouched) return;
+    const published = state.fleet.find((entry) => entry.memberId === member?.id);
+    setPhoto(published?.photo || '');
+    setSavedPhoto(published?.photo || '');
+  }, [state.fleet, member?.id, photoTouched]);
 
   if (!member) return null;
 
   const tier = TIER_BY_ID[member.tier] || TIER_BY_ID.independent;
+  const canPublishPhoto = member.status === 'active';
 
   const update = (key) => (event) => {
     setForm((current) => ({ ...current, [key]: event.target.value }));
@@ -45,6 +66,31 @@ export default function Profile() {
       delete next[key];
       return next;
     });
+  };
+
+  const handlePhotoFile = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setPhotoBusy(true);
+    setPhotoError('');
+    try {
+      const dataUrl = await compressVehiclePhoto(file);
+      setPhoto(dataUrl);
+      setPhotoTouched(true);
+      setSaved(false);
+    } catch (error) {
+      setPhotoError(error.message || 'That photo could not be prepared. Try another image.');
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const clearPhoto = () => {
+    setPhoto('');
+    setPhotoTouched(true);
+    setPhotoError('');
+    setSaved(false);
   };
 
   const handleSubmit = async (event) => {
@@ -71,13 +117,26 @@ export default function Profile() {
       if (nextPassword) await changeMemberPassword(nextPassword);
       const saveResult = updateMember(member.id, patch);
       if (saveResult?.then) await saveResult;
+      if (photo !== savedPhoto) {
+        const fleetResult = photo
+          ? saveFleetPhoto(member.id, photo)
+          : removeFleetPhoto(member.id);
+        if (fleetResult?.then) await fleetResult;
+        setSavedPhoto(photo);
+        setPhotoTouched(false);
+      }
     } catch (error) {
       push(error.message || 'Could not update your profile.', 'error');
       return;
     }
     setForm((current) => ({ ...current, password: '' }));
     setSaved(true);
-    push('Your member details have been updated.', 'success');
+    push(
+      photo !== savedPhoto
+        ? 'Your member details and vehicle photo have been updated.'
+        : 'Your member details have been updated.',
+      'success'
+    );
   };
 
   return (
@@ -153,6 +212,61 @@ export default function Profile() {
               <input id="profile-licence" value={form.licenseNumber} onChange={update('licenseNumber')} />
             </Field>
           </div>
+
+          <div className="vehicle-photo">
+            <div className="vehicle-photo-preview">
+              {photo ? (
+                <img src={photo} alt={`${form.vehicleType} operated by ${form.name || member.name}`} />
+              ) : (
+                <span className="vehicle-photo-empty">
+                  <Icon name="camera" size={30} />
+                  <span>No public photo yet</span>
+                </span>
+              )}
+            </div>
+            <div className="vehicle-photo-copy">
+              <h3>Public vehicle photo</h3>
+              <p>
+                Show visiting customers what you drive. Your photo appears on the public fleet page
+                with your name, vehicle type and region. Your registration, phone, licence and
+                emergency contacts are never shown.
+              </p>
+              <input
+                ref={photoInput}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handlePhotoFile}
+                hidden
+              />
+              <div className="vehicle-photo-actions">
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => photoInput.current?.click()}
+                  disabled={photoBusy || !canPublishPhoto}
+                >
+                  <Icon name="camera" size={15} /> {photo ? 'Replace photo' : 'Add photo'}
+                </button>
+                {photo && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    onClick={clearPhoto}
+                    disabled={photoBusy}
+                  >
+                    Remove
+                  </button>
+                )}
+              </div>
+              {photoBusy && <span className="field-hint">Preparing your photo…</span>}
+              {photoError && <span className="field-error">{photoError}</span>}
+              {!canPublishPhoto && (
+                <span className="field-hint">
+                  You can publish a photo once your membership is active.
+                </span>
+              )}
+            </div>
+          </div>
         </fieldset>
 
         <fieldset className="form-section">
@@ -204,9 +318,13 @@ export default function Profile() {
             <div><dt>Joined</dt><dd>{formatDate(member.joinedAt)}</dd></div>
             <div><dt>Vehicle</dt><dd>{member.vehicleType}</dd></div>
             <div><dt>Registration</dt><dd>{member.vehiclePlate || '—'}</dd></div>
+            <div><dt>Public fleet photo</dt><dd>{savedPhoto ? 'Published' : 'Not published'}</dd></div>
           </dl>
           <Link to="/portal/dues" className="btn btn-outline btn-block btn-sm">
             <Icon name="wallet" size={14} /> Dues & payments
+          </Link>
+          <Link to="/fleet" className="btn btn-ghost btn-block btn-sm">
+            <Icon name="truck" size={14} /> View the public fleet
           </Link>
         </section>
 

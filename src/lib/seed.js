@@ -1,4 +1,5 @@
 import { TIER_BY_ID } from '../config.js';
+import { buildDemoFleet } from './fleet.js';
 
 function at(daysOffset, hour = 9, minute = 0) {
   const date = new Date();
@@ -308,6 +309,8 @@ export function buildSeed() {
       createdAt: at(-1080)
     }
   ];
+
+  const fleet = buildDemoFleet(members);
 
   const dues = [];
   let duesCounter = 1;
@@ -931,13 +934,14 @@ export function buildSeed() {
   ];
 
   return {
-    version: 2,
+    version: 3,
     members,
     loads,
     dues,
     news,
     events,
     alerts,
+    fleet,
     messages,
     registrations,
     settings: {

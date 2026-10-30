@@ -10,6 +10,7 @@ const NAV = [
   { to: '/', label: 'Home', end: true },
   { to: '/about', label: 'About' },
   { to: '/loads', label: 'Load board' },
+  { to: '/fleet', label: 'Fleet' },
   { to: '/membership', label: 'Membership' },
   { to: '/news', label: 'News' },
   { to: '/events', label: 'Events' },
@@ -115,6 +116,7 @@ export default function SiteLayout() {
             <Link to="/about">Who we are</Link>
             <Link to="/about#leadership">Leadership</Link>
             <Link to="/membership">Join or renew</Link>
+            <Link to="/fleet">Member fleet</Link>
             <Link to="/contact">Contact the office</Link>
           </div>
 
