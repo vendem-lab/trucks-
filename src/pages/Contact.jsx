@@ -8,6 +8,8 @@ import { addMessage } from '../lib/store.js';
 import { isValidEmail } from '../lib/format.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { useSearchParams } from 'react-router-dom';
+import { useAuth } from '../context/authContext.js';
+import { accountLinkFor } from '../lib/sessionLinks.js';
 
 const INITIAL = {
   name: '',
@@ -20,6 +22,8 @@ const INITIAL = {
 
 export default function Contact() {
   const [searchParams] = useSearchParams();
+  const { session } = useAuth();
+  const account = accountLinkFor(session);
   const [form, setForm] = useState(() => ({
     ...INITIAL,
     type: ENQUIRY_TYPES.some((type) => type.id === searchParams.get('type'))
@@ -121,13 +125,13 @@ export default function Contact() {
                   <strong>{BRAND.hours}</strong>
                 </div>
               </div>
-              <Link to="/membership" className="contact-card">
+              <Link to={session ? account.to : '/membership'} className="contact-card">
                 <span className="addon-icon">
                   <Icon name="idCard" size={20} />
                 </span>
                 <div>
-                  <span>Not a member yet?</span>
-                  <strong>Join the union</strong>
+                  <span>{session ? 'Your membership' : 'Not a member yet?'}</span>
+                  <strong>{session ? account.label : 'Join the union'}</strong>
                 </div>
               </Link>
             </div>

@@ -10,6 +10,7 @@ import { ALERT_FREQUENCIES, VEHICLE_TYPES } from '../config.js';
 import { addAlert, claimLoad, deleteAlert, updateAlert, useStore } from '../lib/store.js';
 import { countAlertMatches } from '../lib/union.js';
 import { useAuth } from '../context/authContext.js';
+import { accountLinkFor } from '../lib/sessionLinks.js';
 import { useToast } from '../context/ToastContext.jsx';
 
 const STATUS_FILTERS = [
@@ -29,6 +30,7 @@ const EMPTY_ALERT = {
 export default function Loads() {
   const state = useStore();
   const { session } = useAuth();
+  const account = accountLinkFor(session);
   const { push } = useToast();
   const [search, setSearch] = useState('');
   const [trailer, setTrailer] = useState('all');
@@ -131,9 +133,9 @@ export default function Loads() {
         description="Every shipper on this board is verified by the union office. Contact details unlock for members in good standing, and the union never takes a cut of your rate."
       >
         <div className="page-hero-actions">
-          {member ? (
-            <Link to="/portal" className="btn btn-primary">
-              <Icon name="user" size={16} /> Open my portal
+          {session ? (
+            <Link to={account.to} className="btn btn-primary">
+              <Icon name="user" size={16} /> {account.label}
             </Link>
           ) : (
             <Link to="/membership" className="btn btn-primary">
@@ -261,9 +263,17 @@ export default function Loads() {
                         >
                           <Icon name="check" size={15} /> Claim this load
                         </button>
+                      ) : session?.role === 'staff' ? (
+                        <Link to="/admin/loads" className="btn btn-outline btn-sm">
+                          <Icon name="lock" size={14} /> Manage loads
+                        </Link>
                       ) : (
-                        <Link to="/membership" className="btn btn-outline btn-sm">
-                          <Icon name="lock" size={14} /> Join to claim
+                        <Link
+                          to={session ? '/portal' : '/membership'}
+                          className="btn btn-outline btn-sm"
+                        >
+                          <Icon name="lock" size={14} />{' '}
+                          {session ? 'View membership status' : 'Join to claim'}
                         </Link>
                       )}
                       {unlocked ? (
@@ -339,7 +349,19 @@ export default function Loads() {
             </div>
           </div>
 
-          {member ? (
+          {session?.role === 'staff' ? (
+            <div className="card alerts-login">
+              <span className="empty-icon"><Icon name="shield" size={26} /></span>
+              <h3>Staff workspace</h3>
+              <p>
+                Job alerts belong to member accounts. Manage the load board and member alerts from
+                the admin workspace.
+              </p>
+              <div className="alerts-login-actions">
+                <Link to="/admin/loads" className="btn btn-primary">Manage loads</Link>
+              </div>
+            </div>
+          ) : member ? (
             <div className="alerts-panel">
               <form className="card alert-form-card" onSubmit={handleAddAlert} noValidate>
                 <div className="card-head">

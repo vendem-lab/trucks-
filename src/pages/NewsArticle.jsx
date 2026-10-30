@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
+import JoinCta from '../components/JoinCta.jsx';
 import { NEWS_CATEGORIES } from '../config.js';
 import { useStore } from '../lib/store.js';
 import { formatDate, initials } from '../lib/format.js';
@@ -86,9 +87,7 @@ export default function NewsArticle() {
           </div>
           <div className="article-foot-actions">
             <Link to="/contact" className="btn btn-outline">Contact the office</Link>
-            <Link to="/membership" className="btn btn-primary">
-              Join the union <Icon name="arrowRight" size={15} />
-            </Link>
+            <JoinCta className="btn btn-primary" iconSize={15} />
           </div>
         </div>
 

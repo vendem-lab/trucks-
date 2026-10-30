@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import PageHero from '../components/PageHero.jsx';
 import Icon from '../components/Icon.jsx';
+import JoinCta from '../components/JoinCta.jsx';
 import { BRAND, LEADERSHIP, PILLARS, REGIONS } from '../config.js';
 import { initials } from '../lib/format.js';
 
@@ -31,9 +32,7 @@ export default function About() {
         description="Haulway Drivers’ Union represents independent drivers, owner-operators and small fleets across Ghana. We are not a broker, a party or a recruitment agency. We are the people who drive."
       >
         <div className="page-hero-actions">
-          <Link to="/membership" className="btn btn-primary">
-            Join the union <Icon name="arrowRight" size={16} />
-          </Link>
+          <JoinCta className="btn btn-primary" iconSize={16} />
           <Link to="/contact" className="btn btn-outline">Talk to the office</Link>
         </div>
       </PageHero>
@@ -191,9 +190,7 @@ export default function About() {
             <p>Join today and your first month of legal cover starts when your application is approved.</p>
           </div>
           <div className="cta-actions">
-            <Link to="/membership" className="btn btn-primary btn-lg">
-              Join the union <Icon name="arrowRight" size={18} />
-            </Link>
+            <JoinCta className="btn btn-primary btn-lg" iconSize={18} />
             <Link to="/contact" className="btn btn-ghost btn-lg">Ask a question</Link>
           </div>
         </div>

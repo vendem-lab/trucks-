@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
 import LoadCard from '../components/LoadCard.jsx';
 import FleetCard from '../components/FleetCard.jsx';
+import JoinCta from '../components/JoinCta.jsx';
 import Logo from '../components/Logo.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import { BRAND, MEMBER_BENEFITS, PILLARS, NEWS_CATEGORIES, EVENT_TYPES } from '../config.js';
@@ -86,9 +87,7 @@ export default function Home() {
               loads and a welfare fund that shows its books.
             </p>
             <div className="hero-actions">
-              <Link to="/membership" className="btn btn-primary btn-lg">
-                Join the union <Icon name="arrowRight" size={18} />
-              </Link>
+              <JoinCta className="btn btn-primary btn-lg" iconSize={18} />
               <Link to="/loads" className="btn btn-ghost btn-lg">
                 <Icon name="clipboard" size={17} /> Browse verified loads
               </Link>
@@ -435,9 +434,7 @@ export default function Home() {
             </p>
           </div>
           <div className="cta-actions">
-            <Link to="/membership" className="btn btn-primary btn-lg">
-              Join the union <Icon name="arrowRight" size={18} />
-            </Link>
+            <JoinCta className="btn btn-primary btn-lg" iconSize={18} />
             <a href={`tel:${BRAND.memberLine.replace(/\s/g, '')}`} className="btn btn-ghost btn-lg">
               <Icon name="phone" size={17} /> {BRAND.memberLine}
             </a>

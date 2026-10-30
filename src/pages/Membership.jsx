@@ -139,9 +139,20 @@ export default function Membership() {
         description="Membership is open to any professional driver, owner-operator or small fleet in Ghana. Pick the tier that fits how you work, and the union handles the rest."
       >
         <div className="page-hero-actions">
-          <a href="#join" className="btn btn-primary">
-            Start your application <Icon name="arrowRight" size={16} />
-          </a>
+          {member ? (
+            <Link to="/portal" className="btn btn-primary">
+              Go to my portal <Icon name="arrowRight" size={16} />
+            </Link>
+          ) : isStaff ? (
+            <Link to="/admin" className="btn btn-primary">
+              Admin dashboard <Icon name="arrowRight" size={16} />
+            </Link>
+          ) : (
+            <a href="#join" className="btn btn-primary">
+              {applyingWithAccount ? 'Complete your application' : 'Start your application'}{' '}
+              <Icon name="arrowRight" size={16} />
+            </a>
+          )}
           <a href="#tiers" className="btn btn-outline">Compare tiers</a>
         </div>
       </PageHero>

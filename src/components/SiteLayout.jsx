@@ -5,6 +5,7 @@ import Icon from './Icon.jsx';
 import { BRAND } from '../config.js';
 import { isDemoMode } from '../lib/store.js';
 import { useAuth } from '../context/authContext.js';
+import { accountLinkFor } from '../lib/sessionLinks.js';
 
 const NAV = [
   { to: '/', label: 'Home', end: true },
@@ -27,14 +28,7 @@ export default function SiteLayout() {
     window.scrollTo(0, 0);
   }, [location.pathname]);
 
-  const accountLink =
-    session?.profileMissing
-      ? { to: '/membership', label: 'Complete application' }
-      : session?.role === 'staff'
-        ? { to: '/admin', label: 'Admin dashboard' }
-        : session?.role === 'member'
-          ? { to: '/portal', label: 'My portal' }
-          : { to: '/login', label: 'Member login' };
+  const accountLink = accountLinkFor(session);
 
   return (
     <div className="site">
@@ -61,9 +55,11 @@ export default function SiteLayout() {
                   Sign out
                 </button>
               )}
-              <Link to="/membership" className="btn btn-primary btn-block">
-                Join the union
-              </Link>
+              {!session && (
+                <Link to="/membership" className="btn btn-primary btn-block">
+                  Join the union
+                </Link>
+              )}
             </div>
           </nav>
           <div className="nav-actions">
@@ -75,10 +71,12 @@ export default function SiteLayout() {
                 Sign out
               </button>
             )}
-            <Link to="/membership" className="btn btn-primary btn-sm">
-              Join the union
-              <Icon name="arrowRight" size={15} />
-            </Link>
+            {!session && (
+              <Link to="/membership" className="btn btn-primary btn-sm">
+                Join the union
+                <Icon name="arrowRight" size={15} />
+              </Link>
+            )}
             <button
               type="button"
               className="nav-toggle"

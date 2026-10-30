@@ -3,12 +3,14 @@ import { Link } from 'react-router-dom';
 import PageHero from '../components/PageHero.jsx';
 import Field from '../components/Field.jsx';
 import Icon from '../components/Icon.jsx';
+import JoinCta from '../components/JoinCta.jsx';
 import Modal from '../components/Modal.jsx';
 import { EVENT_TYPES } from '../config.js';
 import { isDemoMode, registerForEvent, useStore } from '../lib/store.js';
 import { eventDateParts, eventDateRange, eventTime } from '../lib/union.js';
 import { formatCurrency, isValidEmail, isValidPhone } from '../lib/format.js';
 import { useAuth } from '../context/authContext.js';
+import { accountLinkFor } from '../lib/sessionLinks.js';
 import { useToast } from '../context/ToastContext.jsx';
 
 const EMPTY_REGISTRATION = { name: '', email: '', phone: '' };
@@ -24,6 +26,7 @@ function isPast(event) {
 export default function Events() {
   const state = useStore();
   const { session } = useAuth();
+  const account = accountLinkFor(session);
   const { push } = useToast();
   const [type, setType] = useState('all');
   const [selected, setSelected] = useState(null);
@@ -134,7 +137,13 @@ export default function Events() {
           <a href="#upcoming" className="btn btn-primary">
             See upcoming events <Icon name="arrowRight" size={16} />
           </a>
-          <Link to="/membership" className="btn btn-outline">Join to attend</Link>
+          {session ? (
+            <Link to={account.to} className="btn btn-outline">
+              {account.label}
+            </Link>
+          ) : (
+            <Link to="/membership" className="btn btn-outline">Join to attend</Link>
+          )}
         </div>
       </PageHero>
 
@@ -300,9 +309,7 @@ export default function Events() {
             </p>
           </div>
           <div className="cta-actions">
-            <Link to="/membership" className="btn btn-primary btn-lg">
-              Join the union <Icon name="arrowRight" size={18} />
-            </Link>
+            <JoinCta className="btn btn-primary btn-lg" iconSize={18} />
             <Link to="/contact" className="btn btn-ghost btn-lg">Ask about training</Link>
           </div>
         </div>
