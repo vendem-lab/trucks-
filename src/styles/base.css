@@ -290,6 +290,12 @@ legend {
   color: var(--red);
 }
 
+.icon-btn-success:hover {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #15803d;
+}
+
 /* ------------------------------------------------------------------
    Typography helpers & eyebrows
 ------------------------------------------------------------------ */

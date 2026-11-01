@@ -89,8 +89,16 @@ export const MEMBER_STATUSES = [
 
 export const LOAD_STATUSES = [
   { id: 'open', label: 'Open' },
-  { id: 'filled', label: 'Filled' },
+  { id: 'filled', label: 'Claimed' },
+  { id: 'delivered', label: 'Delivered' },
+  { id: 'disputed', label: 'Disputed' },
   { id: 'closed', label: 'Closed' }
+];
+
+export const LOAD_REQUEST_STATUSES = [
+  { id: 'pending', label: 'Pending review' },
+  { id: 'approved', label: 'Approved' },
+  { id: 'rejected', label: 'Rejected' }
 ];
 
 export const DUES_STATUSES = [

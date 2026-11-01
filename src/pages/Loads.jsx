@@ -5,17 +5,36 @@ import LoadCard from '../components/LoadCard.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import Field from '../components/Field.jsx';
 import Icon from '../components/Icon.jsx';
+import Modal from '../components/Modal.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
-import { ALERT_FREQUENCIES, VEHICLE_TYPES } from '../config.js';
-import { addAlert, claimLoad, deleteAlert, updateAlert, useStore } from '../lib/store.js';
+import { ALERT_FREQUENCIES, BRAND, VEHICLE_TYPES } from '../config.js';
+import {
+  addAlert,
+  claimLoad,
+  deleteAlert,
+  markLoadDelivered,
+  submitLoadRequest,
+  updateAlert,
+  useStore
+} from '../lib/store.js';
 import { countAlertMatches } from '../lib/union.js';
+import {
+  checkLoadRequestRate,
+  emptyLoadRequest,
+  readLoadRequestTimes,
+  recordLoadRequestTime,
+  validateLoadRequest
+} from '../lib/loadRequests.js';
+import { validateDelivery } from '../lib/deliveries.js';
+import { compressVehiclePhoto } from '../lib/image.js';
 import { useAuth } from '../context/authContext.js';
 import { accountLinkFor } from '../lib/sessionLinks.js';
 import { useToast } from '../context/ToastContext.jsx';
 
 const STATUS_FILTERS = [
   { id: 'open', label: 'Open loads' },
-  { id: 'filled', label: 'Filled' },
+  { id: 'filled', label: 'Claimed' },
+  { id: 'delivered', label: 'Delivered' },
   { id: 'all', label: 'Everything' }
 ];
 
@@ -37,6 +56,15 @@ export default function Loads() {
   const [status, setStatus] = useState('open');
   const [alertForm, setAlertForm] = useState(EMPTY_ALERT);
   const [alertError, setAlertError] = useState('');
+  const [requestForm, setRequestForm] = useState(() => emptyLoadRequest());
+  const [requestErrors, setRequestErrors] = useState({});
+  const [requestError, setRequestError] = useState('');
+  const [requestSent, setRequestSent] = useState(null);
+  const [deliveryLoad, setDeliveryLoad] = useState(null);
+  const [deliveryNote, setDeliveryNote] = useState('');
+  const [deliveryPhoto, setDeliveryPhoto] = useState('');
+  const [deliveryErrors, setDeliveryErrors] = useState({});
+  const [photoBusy, setPhotoBusy] = useState(false);
 
   const member =
     session?.role === 'member'
@@ -100,8 +128,51 @@ export default function Loads() {
     }
   };
 
-  const handleAddAlert = async (event) => {
+  const openDelivery = (load) => {
+    setDeliveryLoad(load);
+    setDeliveryNote('');
+    setDeliveryPhoto('');
+    setDeliveryErrors({});
+  };
+
+  const handleDeliveryPhoto = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setPhotoBusy(true);
+    setDeliveryErrors((current) => ({ ...current, photo: '' }));
+    try {
+      const dataUrl = await compressVehiclePhoto(file);
+      setDeliveryPhoto(dataUrl);
+    } catch (error) {
+      setDeliveryErrors((current) => ({ ...current, photo: error.message }));
+    } finally {
+      setPhotoBusy(false);
+      event.target.value = '';
+    }
+  };
+
+  const handleMarkDelivered = async (event) => {
     event.preventDefault();
+    if (!deliveryLoad) return;
+    const errors = validateDelivery({ note: deliveryNote, photo: deliveryPhoto });
+    setDeliveryErrors(errors);
+    if (Object.keys(errors).length) return;
+    try {
+      await markLoadDelivered(deliveryLoad.id, member, {
+        note: deliveryNote,
+        photo: deliveryPhoto
+      });
+      push(
+        `Load ${deliveryLoad.reference} marked delivered. The shipper can now confirm it.`,
+        'success'
+      );
+      setDeliveryLoad(null);
+    } catch (error) {
+      push(error.message || 'Could not record the delivery.', 'error');
+    }
+  };
+
+  const handleAddAlert = async (event) => {    event.preventDefault();
     if (!member) {
       push('Sign in as a member to set up job alerts.', 'error');
       return;
@@ -125,6 +196,54 @@ export default function Loads() {
     }
   };
 
+  const updateRequestForm = (key) => (event) => {
+    const value = event.target.type === 'checkbox' ? event.target.checked : event.target.value;
+    setRequestForm((current) => ({ ...current, [key]: value }));
+    setRequestError('');
+    setRequestErrors((current) => {
+      if (!current[key]) return current;
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const handlePostLoad = async (event) => {
+    event.preventDefault();
+    // Honeypot: real shippers never fill this hidden field.
+    if (String(requestForm.website || '').trim()) {
+      setRequestSent({ reference: '' });
+      return;
+    }
+
+    const errors = validateLoadRequest(requestForm);
+    setRequestErrors(errors);
+    if (Object.keys(errors).length) {
+      push('Check the highlighted fields before submitting.', 'error');
+      return;
+    }
+
+    const limit = checkLoadRequestRate(readLoadRequestTimes());
+    if (!limit.allowed) {
+      const minutes = Math.max(1, Math.ceil(limit.retryAfterMs / 60000));
+      setRequestError(
+        `You have sent several requests. Please try again in ${minutes} minute${minutes === 1 ? '' : 's'}.`
+      );
+      return;
+    }
+
+    try {
+      const saved = await submitLoadRequest(requestForm);
+      recordLoadRequestTime();
+      setRequestSent(saved);
+      setRequestForm(emptyLoadRequest());
+      setRequestErrors({});
+      push('Load request received. The union office will review it.', 'success');
+    } catch (error) {
+      setRequestError(error.message || 'Could not submit the load request. Please try again.');
+    }
+  };
+
   return (
     <>
       <PageHero
@@ -142,6 +261,9 @@ export default function Loads() {
               Join to unlock contacts <Icon name="arrowRight" size={16} />
             </Link>
           )}
+          <a href="#post-load" className="btn btn-outline">
+            <Icon name="plus" size={16} /> Post a load
+          </a>
           <a href="#alerts" className="btn btn-outline">
             <Icon name="bell" size={16} /> Set up job alerts
           </a>
@@ -250,9 +372,31 @@ export default function Loads() {
                 <LoadCard
                   key={load.id}
                   load={load}
+                  contact={
+                    (state.loadContacts || []).find((entry) => entry.loadId === load.id) || null
+                  }
                   unlocked={unlocked}
                   showContact
                 >
+                  {load.status === 'filled' && load.filledById === member?.id && (
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      onClick={() => openDelivery(load)}
+                    >
+                      <Icon name="checkCircle" size={15} /> Mark as delivered
+                    </button>
+                  )}
+                  {load.status === 'delivered' && load.filledById === member?.id && (
+                    <span className="load-lock load-lock-open">
+                      <Icon name="clock" size={14} /> Awaiting shipper confirmation
+                    </span>
+                  )}
+                  {load.status === 'disputed' && load.filledById === member?.id && (
+                    <span className="load-lock">
+                      <Icon name="alert" size={14} /> Shipper reported a problem
+                    </span>
+                  )}
                   {load.status === 'open' && (
                     <>
                       {unlocked ? (
@@ -323,6 +467,242 @@ export default function Loads() {
             <Link to="/contact" className="card-link">
               Report a load <Icon name="arrowRight" size={14} />
             </Link>
+            <Link to="/confirm-delivery" className="card-link">
+              Confirm a delivery <Icon name="arrowRight" size={14} />
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="section" id="post-load">
+        <div className="container post-load-layout">
+          <div className="post-load-copy">
+            <span className="eyebrow">For shippers</span>
+            <h2>Have freight to move?</h2>
+            <p>
+              Send the details and the union office will check the shipper, rate and pickup address
+              before publishing the load to verified drivers. There is no fee and the union never
+              takes a cut of the rate.
+            </p>
+            <ul className="check-list">
+              <li><Icon name="check" size={16} /> Reviewed on weekdays, usually within one working day</li>
+              <li><Icon name="check" size={16} /> Contact details stay hidden from the public board</li>
+              <li><Icon name="check" size={16} /> You are contacted if anything needs clarifying</li>
+            </ul>
+            <div className="inline-note">
+              <Icon name="shield" size={16} />
+              <span>
+                We reject unverified brokers, upfront-fee requests and loads without a clear pickup
+                address.
+              </span>
+            </div>
+          </div>
+
+          <div className="card post-load-card">
+            {requestSent ? (
+              <div className="post-load-success">
+                <span className="quote-success-icon">
+                  <Icon name="checkCircle" size={30} />
+                </span>
+                <h2>Request received</h2>
+                <p>
+                  {requestSent.reference ? (
+                    <>Your reference is <strong>{requestSent.reference}</strong>. </>
+                  ) : null}
+                  The union office checks the shipper, the rate and the pickup address before the
+                  load appears on the board. We will contact you if anything needs clarifying.
+                </p>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => setRequestSent(null)}
+                >
+                  Post another load
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handlePostLoad} noValidate>
+                <div className="card-head">
+                  <div>
+                    <h2>Post a load for review</h2>
+                    <p>Free for shippers. Every request is checked before it goes live.</p>
+                  </div>
+                  <span className="card-chip">Shippers</span>
+                </div>
+
+                {requestError && (
+                  <div className="form-error" role="alert">
+                    <Icon name="alert" size={16} /> {requestError}
+                  </div>
+                )}
+
+                <div className="form-grid">
+                  <Field label="Cargo" htmlFor="request-title" required error={requestErrors.title}>
+                    <input
+                      id="request-title"
+                      value={requestForm.title}
+                      onChange={updateRequestForm('title')}
+                      placeholder="e.g. Palletted building materials"
+                    />
+                  </Field>
+                  <Field label="Shipper / company" htmlFor="request-shipper" required error={requestErrors.shipper}>
+                    <input
+                      id="request-shipper"
+                      value={requestForm.shipper}
+                      onChange={updateRequestForm('shipper')}
+                      placeholder="e.g. BuildRight Construction"
+                      autoComplete="organization"
+                    />
+                  </Field>
+                  <Field label="Contact name" htmlFor="request-contact" required error={requestErrors.contactName}>
+                    <input
+                      id="request-contact"
+                      value={requestForm.contactName}
+                      onChange={updateRequestForm('contactName')}
+                      placeholder="Who should the office call?"
+                      autoComplete="name"
+                    />
+                  </Field>
+                  <Field label="Contact phone" htmlFor="request-phone" required error={requestErrors.contactPhone}>
+                    <input
+                      id="request-phone"
+                      type="tel"
+                      value={requestForm.contactPhone}
+                      onChange={updateRequestForm('contactPhone')}
+                      placeholder="+233 24 000 0000"
+                      autoComplete="tel"
+                    />
+                  </Field>
+                  <Field label="Contact email" htmlFor="request-email" required error={requestErrors.contactEmail}>
+                    <input
+                      id="request-email"
+                      type="email"
+                      value={requestForm.contactEmail}
+                      onChange={updateRequestForm('contactEmail')}
+                      placeholder="ops@shipper.com"
+                      autoComplete="email"
+                    />
+                  </Field>
+                  <Field label="Vehicle type" htmlFor="request-vehicle" required error={requestErrors.vehicleType}>
+                    <select
+                      id="request-vehicle"
+                      value={requestForm.vehicleType}
+                      onChange={updateRequestForm('vehicleType')}
+                    >
+                      {VEHICLE_TYPES.map((type) => (
+                        <option key={type} value={type}>{type}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Pickup from" htmlFor="request-origin" required error={requestErrors.origin}>
+                    <input
+                      id="request-origin"
+                      value={requestForm.origin}
+                      onChange={updateRequestForm('origin')}
+                      placeholder="e.g. Tema"
+                    />
+                  </Field>
+                  <Field label="Deliver to" htmlFor="request-destination" required error={requestErrors.destination}>
+                    <input
+                      id="request-destination"
+                      value={requestForm.destination}
+                      onChange={updateRequestForm('destination')}
+                      placeholder="e.g. Kumasi"
+                    />
+                  </Field>
+                  <Field label="Weight" htmlFor="request-weight" required error={requestErrors.weightTons}>
+                    <div className="input-suffix">
+                      <input
+                        id="request-weight"
+                        type="number"
+                        min="0.1"
+                        max="100"
+                        step="0.1"
+                        value={requestForm.weightTons}
+                        onChange={updateRequestForm('weightTons')}
+                        placeholder="18"
+                      />
+                      <span>t</span>
+                    </div>
+                  </Field>
+                  <Field label="Rate offered" htmlFor="request-rate" required error={requestErrors.rate}>
+                    <div className="input-prefix">
+                      <span>GH₵</span>
+                      <input
+                        id="request-rate"
+                        type="number"
+                        min="1"
+                        value={requestForm.rate}
+                        onChange={updateRequestForm('rate')}
+                        placeholder="6200"
+                      />
+                    </div>
+                  </Field>
+                  <Field label="Pickup date" htmlFor="request-pickup" required error={requestErrors.pickupDate}>
+                    <input
+                      id="request-pickup"
+                      type="date"
+                      value={requestForm.pickupDate}
+                      onChange={updateRequestForm('pickupDate')}
+                    />
+                  </Field>
+                  <Field label="Delivery date" htmlFor="request-delivery" error={requestErrors.deliveryDate}>
+                    <input
+                      id="request-delivery"
+                      type="date"
+                      value={requestForm.deliveryDate}
+                      onChange={updateRequestForm('deliveryDate')}
+                    />
+                  </Field>
+                </div>
+
+                <Field
+                  label="Loading requirements"
+                  htmlFor="request-requirements"
+                  hint="Straps, temperature, permits, loading crew or access notes."
+                  error={requestErrors.requirements}
+                >
+                  <textarea
+                    id="request-requirements"
+                    rows="3"
+                    value={requestForm.requirements}
+                    onChange={updateRequestForm('requirements')}
+                    placeholder="Anything the driver needs to know before accepting…"
+                  />
+                </Field>
+
+                <div className="hp-field" aria-hidden="true">
+                  <label htmlFor="request-website">Website</label>
+                  <input
+                    id="request-website"
+                    tabIndex={-1}
+                    autoComplete="off"
+                    value={requestForm.website}
+                    onChange={updateRequestForm('website')}
+                  />
+                </div>
+
+                <label className={`check-field ${requestErrors.consent ? 'is-invalid' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={requestForm.consent}
+                    onChange={updateRequestForm('consent')}
+                  />
+                  <span>I confirm I am authorised to post this load and the details are accurate.</span>
+                </label>
+                {requestErrors.consent && (
+                  <span className="field-error check-error">{requestErrors.consent}</span>
+                )}
+
+                <button type="submit" className="btn btn-primary btn-block">
+                  <Icon name="shield" size={16} /> Submit for review
+                </button>
+                <p className="post-load-foot">
+                  Need to change a request? Call the office on {BRAND.phone} and quote the reference
+                  shown after you submit.
+                </p>
+              </form>
+            )}
           </div>
         </div>
       </section>
@@ -518,6 +898,81 @@ export default function Loads() {
           )}
         </div>
       </section>
+
+      <Modal
+        open={Boolean(deliveryLoad)}
+        onClose={() => setDeliveryLoad(null)}
+        title="Mark this load delivered"
+        subtitle={
+          deliveryLoad
+            ? `${deliveryLoad.reference} · ${deliveryLoad.origin} → ${deliveryLoad.destination}`
+            : ''
+        }
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setDeliveryLoad(null)}>
+              Cancel
+            </button>
+            <button type="submit" form="delivery-form" className="btn btn-primary" disabled={photoBusy}>
+              <Icon name="checkCircle" size={15} /> Confirm delivery
+            </button>
+          </>
+        }
+      >
+        {deliveryLoad && (
+          <form id="delivery-form" onSubmit={handleMarkDelivered} className="modal-form" noValidate>
+            <p className="confirm-copy">
+              The shipper is asked to confirm this delivery using reference{' '}
+              <strong>{deliveryLoad.reference}</strong>. The union office sees your note and photo
+              before the load is closed.
+            </p>
+            <Field
+              label="Delivery note"
+              htmlFor="delivery-note"
+              required
+              error={deliveryErrors.note}
+              hint="Where and when it was offloaded, and who signed for it."
+            >
+              <textarea
+                id="delivery-note"
+                rows="3"
+                value={deliveryNote}
+                onChange={(event) => {
+                  setDeliveryNote(event.target.value);
+                  setDeliveryErrors((current) => ({ ...current, note: '' }));
+                }}
+                placeholder="Offloaded at the Kumasi yard at 14:20. Waybill signed by the store keeper."
+              />
+            </Field>
+            <Field
+              label="Proof of delivery photo"
+              htmlFor="delivery-photo"
+              hint="Optional. A photo of the signed waybill or the offloaded cargo."
+              error={deliveryErrors.photo}
+            >
+              <input
+                id="delivery-photo"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handleDeliveryPhoto}
+              />
+            </Field>
+            {photoBusy && <p className="field-hint">Preparing the photo…</p>}
+            {deliveryPhoto && (
+              <div className="delivery-photo-preview">
+                <img src={deliveryPhoto} alt="Proof of delivery preview" />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => setDeliveryPhoto('')}
+                >
+                  Remove photo
+                </button>
+              </div>
+            )}
+          </form>
+        )}
+      </Modal>
     </>
   );
 }

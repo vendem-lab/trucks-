@@ -10,6 +10,7 @@ const NAV = [
   { to: '/admin', label: 'Dashboard', icon: 'dashboard', end: true },
   { to: '/admin/members', label: 'Members', icon: 'users' },
   { to: '/admin/loads', label: 'Loads', icon: 'clipboard' },
+  { to: '/admin/load-requests', label: 'Load requests', icon: 'fileText' },
   { to: '/admin/dues', label: 'Dues', icon: 'wallet' },
   { to: '/admin/news', label: 'News', icon: 'megaphone' },
   { to: '/admin/events', label: 'Events', icon: 'calendar' },
@@ -21,6 +22,10 @@ const TITLES = {
   '/admin': { title: 'Dashboard', subtitle: 'Membership, loads and dues at a glance.' },
   '/admin/members': { title: 'Members', subtitle: 'Applications, profiles and membership status.' },
   '/admin/loads': { title: 'Load board', subtitle: 'Post verified loads and track who claimed them.' },
+  '/admin/load-requests': {
+    title: 'Load requests',
+    subtitle: 'Public shipper submissions waiting for verification.'
+  },
   '/admin/dues': { title: 'Dues', subtitle: 'Invoices, payments and outstanding balances.' },
   '/admin/news': { title: 'News', subtitle: 'Announcements and updates published to the site.' },
   '/admin/events': { title: 'Events & training', subtitle: 'Meetings, courses and registrations.' },
@@ -39,6 +44,9 @@ export default function AdminLayout() {
     state.members.filter((member) => member.status === 'pending').length +
     (state.applications || []).filter((application) => application.status === 'pending').length;
   const unread = state.messages.filter((message) => !message.read).length;
+  const pendingRequests = (state.loadRequests || []).filter(
+    (request) => request.status === 'pending'
+  ).length;
   const meta = TITLES[location.pathname] || { title: 'Admin', subtitle: '' };
 
   useEffect(() => {
@@ -65,7 +73,13 @@ export default function AdminLayout() {
           <span className="admin-nav-label">Union workspace</span>
           {NAV.map((item) => {
             const badge =
-              item.to === '/admin/members' ? pending : item.to === '/admin/enquiries' ? unread : 0;
+              item.to === '/admin/members'
+                ? pending
+                : item.to === '/admin/enquiries'
+                  ? unread
+                  : item.to === '/admin/load-requests'
+                    ? pendingRequests
+                    : 0;
             return (
               <NavLink
                 key={item.to}

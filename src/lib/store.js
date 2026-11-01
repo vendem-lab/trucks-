@@ -1,6 +1,8 @@
 import { useSyncExternalStore } from 'react';
 import { buildSeed } from './seed.js';
 import { buildDemoFleet, demoFleetEntry, publicFleetFields } from './fleet.js';
+import { buildLoadFromRequest, contactFromLoadRequest, validateLoadRequest } from './loadRequests.js';
+import { buildDeliveryRecord, normalizeEmail } from './deliveries.js';
 import {
   addDoc,
   collection,
@@ -25,28 +27,31 @@ const DEMO_MODE = import.meta.env.VITE_USE_DEMO_DATA === 'true';
 function loadState() {
   if (!DEMO_MODE) {
     return {
-      version: 3, members: [], loads: [], dues: [], news: [], events: [], alerts: [],
-      messages: [], registrations: [], fleet: [], settings: {}, counters: {}, loading: true
+      version: 5, members: [], loads: [], loadContacts: [], deliveries: [],
+      deliveryConfirmations: [], loadRequests: [], dues: [], news: [], events: [],
+      alerts: [], messages: [], registrations: [], fleet: [], settings: {}, counters: {}, loading: true
     };
   }
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (parsed && parsed.version === 3) {
+      if (parsed && parsed.version === 5) {
         return {
           ...parsed,
+          loadContacts: Array.isArray(parsed.loadContacts) ? parsed.loadContacts : [],
+          deliveries: Array.isArray(parsed.deliveries) ? parsed.deliveries : [],
+          deliveryConfirmations: Array.isArray(parsed.deliveryConfirmations)
+            ? parsed.deliveryConfirmations
+            : [],
+          loadRequests: Array.isArray(parsed.loadRequests) ? parsed.loadRequests : [],
           fleet: Array.isArray(parsed.fleet)
             ? parsed.fleet
             : buildDemoFleet(Array.isArray(parsed.members) ? parsed.members : [])
         };
       }
-      if (parsed && parsed.version === 2) {
-        const migrated = {
-          ...parsed,
-          version: 3,
-          fleet: buildDemoFleet(Array.isArray(parsed.members) ? parsed.members : [])
-        };
+      if (parsed && [2, 3, 4].includes(parsed.version)) {
+        const migrated = migrateToVersionFive(parsed);
         localStorage.setItem(STORAGE_KEY, JSON.stringify(migrated));
         return migrated;
       }
@@ -63,10 +68,51 @@ function loadState() {
   return seed;
 }
 
+// Version 5 moves shipper contact details out of the public load document and
+// adds the delivery lifecycle. Older demo data is upgraded in place.
+function migrateToVersionFive(parsed) {
+  const loads = Array.isArray(parsed.loads) ? parsed.loads : [];
+  const existingContacts = Array.isArray(parsed.loadContacts) ? parsed.loadContacts : [];
+  const loadContacts = existingContacts.length
+    ? existingContacts
+    : loads.map((load) => ({
+        id: load.id,
+        loadId: load.id,
+        contactName: load.contactName || '',
+        contactPhone: load.contactPhone || '',
+        contactEmail: load.contactEmail || ''
+      }));
+  const cleanLoads = loads.map((load) => {
+    const { contactName, contactPhone, contactEmail, ...rest } = load;
+    return {
+      ...rest,
+      deliveredAt: rest.deliveredAt || '',
+      deliveryConfirmedAt: rest.deliveryConfirmedAt || ''
+    };
+  });
+
+  return {
+    ...parsed,
+    version: 5,
+    loads: cleanLoads,
+    loadContacts,
+    deliveries: Array.isArray(parsed.deliveries) ? parsed.deliveries : [],
+    deliveryConfirmations: Array.isArray(parsed.deliveryConfirmations)
+      ? parsed.deliveryConfirmations
+      : [],
+    loadRequests: Array.isArray(parsed.loadRequests) ? parsed.loadRequests : [],
+    fleet: Array.isArray(parsed.fleet)
+      ? parsed.fleet
+      : buildDemoFleet(Array.isArray(parsed.members) ? parsed.members : [])
+  };
+}
+
 let state = loadState();
 let liveUnsubscribe = null;
 
-const COLLECTIONS = ['members', 'loads', 'dues', 'news', 'events', 'alerts', 'fleet'];
+const COLLECTIONS = [
+  'members', 'loads', 'loadContacts', 'loadRequests', 'dues', 'news', 'events', 'alerts', 'fleet'
+];
 
 export function startLiveStore(session = null) {
   if (DEMO_MODE) return () => {};
@@ -75,6 +121,11 @@ export function startLiveStore(session = null) {
   state = {
     ...state,
     members: [],
+    loads: [],
+    loadContacts: [],
+    deliveries: [],
+    deliveryConfirmations: [],
+    loadRequests: [],
     dues: [],
     alerts: [],
     fleet: [],
@@ -88,10 +139,10 @@ export function startLiveStore(session = null) {
   };
 
   const isStaff = session?.role === 'staff';
-  const privateCollections = ['members', 'dues', 'alerts', 'applications', 'registrations'];
+  const privateCollections = ['members', 'dues', 'alerts', 'applications', 'registrations', 'deliveries'];
   const allowedCollections = isStaff
-    ? [...COLLECTIONS, 'applications', 'registrations']
-    : ['loads', 'news', 'events', 'fleet', ...(session?.memberId ? ['members', 'dues', 'alerts', 'applications', 'registrations'] : [])];
+    ? [...COLLECTIONS, 'applications', 'registrations', 'deliveries', 'deliveryConfirmations']
+    : ['loads', 'news', 'events', 'fleet', 'loadContacts', ...(session?.memberId ? ['members', 'dues', 'alerts', 'applications', 'registrations', 'deliveries'] : [])];
 
   const subscriptions = allowedCollections.map((name) => {
     const ref = collection(firebaseDb, name);
@@ -247,6 +298,7 @@ function nextReference(draft, type) {
   draft.counters[type] = value + 1;
   if (type === 'member') return `HU-${year}-${String(value).padStart(4, '0')}`;
   if (type === 'dues') return `DUE-${year}-${String(value).padStart(4, '0')}`;
+  if (type === 'loadRequest') return `LR-${year}-${String(value).padStart(4, '0')}`;
   return `LD-${year}-${value}`;
 }
 
@@ -608,73 +660,170 @@ export function removeFleetPhoto(memberId) {
    Loads
 ------------------------------------------------------------------ */
 
+function loadContactRecord(loadId, payload = {}) {
+  return {
+    id: loadId,
+    loadId,
+    contactName: String(payload.contactName || '').trim(),
+    contactPhone: String(payload.contactPhone || '').trim(),
+    contactEmail: normalizeEmail(payload.contactEmail)
+  };
+}
+
+function loadContactFrom(current, loadId) {
+  return (current.loadContacts || []).find((entry) => entry.loadId === loadId || entry.id === loadId) || null;
+}
+
 export async function addLoad(payload) {
+  const id = uid('load');
+  const load = {
+    id,
+    reference: '',
+    title: String(payload.title || '').trim(),
+    shipper: String(payload.shipper || '').trim(),
+    origin: String(payload.origin || '').trim(),
+    destination: String(payload.destination || '').trim(),
+    distanceKm: Number(payload.distanceKm) || 0,
+    trailerType: payload.trailerType || 'Dry van',
+    weightTons: Number(payload.weightTons) || 0,
+    rate: Number(payload.rate) || 0,
+    pickupDate: payload.pickupDate || '',
+    deliveryDate: payload.deliveryDate || '',
+    status: payload.status || 'open',
+    postedAt: new Date().toISOString(),
+    requirements: String(payload.requirements || '').trim(),
+    notes: String(payload.notes || '').trim(),
+    filledBy: '',
+    filledById: '',
+    filledAt: '',
+    deliveredAt: '',
+    deliveryConfirmedAt: ''
+  };
+  const contact = loadContactRecord(id, payload);
+
   if (!DEMO_MODE) {
-    const load = {
-      id: uid('load'), reference: `LD-${Date.now()}`, title: String(payload.title || '').trim(),
-      shipper: String(payload.shipper || '').trim(), origin: String(payload.origin || '').trim(),
-      destination: String(payload.destination || '').trim(), distanceKm: Number(payload.distanceKm) || 0,
-      trailerType: payload.trailerType || 'Dry van', weightTons: Number(payload.weightTons) || 0,
-      rate: Number(payload.rate) || 0, pickupDate: payload.pickupDate || '', deliveryDate: payload.deliveryDate || '',
-      status: payload.status || 'open', postedAt: new Date().toISOString(),
-      requirements: String(payload.requirements || '').trim(), contactName: String(payload.contactName || '').trim(),
-      contactPhone: String(payload.contactPhone || '').trim(), contactEmail: String(payload.contactEmail || '').trim(),
-      notes: String(payload.notes || '').trim(), filledBy: '', filledById: '', filledAt: ''
+    load.reference = `LD-${Date.now()}`;
+    const { id: _id, ...data } = load;
+    const batch = writeBatch(firebaseDb);
+    batch.set(doc(firebaseDb, 'loads', id), data);
+    batch.set(doc(firebaseDb, 'loadContacts', id), {
+      loadId: id,
+      contactName: contact.contactName,
+      contactPhone: contact.contactPhone,
+      contactEmail: contact.contactEmail
+    });
+    await batch.commit();
+    state = {
+      ...state,
+      loads: [load, ...state.loads],
+      loadContacts: [contact, ...(state.loadContacts || [])]
     };
-    const { id, ...data } = load;
-    await setDoc(doc(firebaseDb, 'loads', id), data);
+    listeners.forEach((listener) => listener());
     return load;
   }
+
   return commit((draft) => {
-    const load = {
-      id: uid('load'),
-      reference: nextReference(draft, 'load'),
-      title: String(payload.title || '').trim(),
-      shipper: String(payload.shipper || '').trim(),
-      origin: String(payload.origin || '').trim(),
-      destination: String(payload.destination || '').trim(),
-      distanceKm: Number(payload.distanceKm) || 0,
-      trailerType: payload.trailerType || 'Dry van',
-      weightTons: Number(payload.weightTons) || 0,
-      rate: Number(payload.rate) || 0,
-      pickupDate: payload.pickupDate || '',
-      deliveryDate: payload.deliveryDate || '',
-      status: payload.status || 'open',
-      postedAt: new Date().toISOString(),
-      requirements: String(payload.requirements || '').trim(),
-      contactName: String(payload.contactName || '').trim(),
-      contactPhone: String(payload.contactPhone || '').trim(),
-      contactEmail: String(payload.contactEmail || '').trim(),
-      notes: String(payload.notes || '').trim(),
-      filledBy: '',
-      filledById: '',
-      filledAt: ''
-    };
+    load.reference = nextReference(draft, 'load');
     draft.loads.unshift(load);
+    draft.loadContacts = [contact, ...(draft.loadContacts || [])];
     return load;
   });
 }
 
 export function updateLoad(id, patch) {
-  if (!DEMO_MODE) return updateRecord('loads', id, patch);
+  const { contactName, contactPhone, contactEmail, ...loadPatch } = patch || {};
+  const hasContact = ['contactName', 'contactPhone', 'contactEmail'].some(
+    (key) => Object.prototype.hasOwnProperty.call(patch || {}, key)
+  );
+
+  if (!DEMO_MODE) {
+    const record = { ...getRecord('loads', id), ...loadPatch, id };
+    const batch = writeBatch(firebaseDb);
+    const { id: _id, ...data } = record;
+    batch.set(doc(firebaseDb, 'loads', id), data);
+    let contact = null;
+    if (hasContact) {
+      const existing = getRecord('loadContacts', id) || loadContactRecord(id, {});
+      contact = {
+        ...existing,
+        id,
+        loadId: id,
+        contactName: contactName !== undefined ? String(contactName).trim() : existing.contactName,
+        contactPhone: contactPhone !== undefined ? String(contactPhone).trim() : existing.contactPhone,
+        contactEmail: contactEmail !== undefined ? normalizeEmail(contactEmail) : existing.contactEmail
+      };
+      const { id: _contactId, loadId: _loadId, ...contactData } = contact;
+      batch.set(doc(firebaseDb, 'loadContacts', id), { ...contactData, loadId: id });
+    }
+    return batch.commit().then(() => {
+      state = {
+        ...state,
+        loads: state.loads.map((entry) => (entry.id === id ? record : entry)),
+        loadContacts: contact
+          ? [contact, ...(state.loadContacts || []).filter((entry) => entry.loadId !== id)]
+          : state.loadContacts
+      };
+      listeners.forEach((listener) => listener());
+      return record;
+    });
+  }
+
   return commit((draft) => {
     const load = draft.loads.find((entry) => entry.id === id);
     if (!load) return null;
-    Object.assign(load, patch, {
+    Object.assign(load, loadPatch, {
       id: load.id,
       reference: load.reference,
-      distanceKm: Number(patch.distanceKm ?? load.distanceKm) || 0,
-      weightTons: Number(patch.weightTons ?? load.weightTons) || 0,
-      rate: Number(patch.rate ?? load.rate) || 0
+      distanceKm: Number(loadPatch.distanceKm ?? load.distanceKm) || 0,
+      weightTons: Number(loadPatch.weightTons ?? load.weightTons) || 0,
+      rate: Number(loadPatch.rate ?? load.rate) || 0
     });
+    if (hasContact) {
+      const existing = loadContactFrom(draft, id) || loadContactRecord(id, {});
+      const contact = {
+        ...existing,
+        id,
+        loadId: id,
+        contactName: contactName !== undefined ? String(contactName).trim() : existing.contactName,
+        contactPhone: contactPhone !== undefined ? String(contactPhone).trim() : existing.contactPhone,
+        contactEmail: contactEmail !== undefined ? normalizeEmail(contactEmail) : existing.contactEmail
+      };
+      draft.loadContacts = [contact, ...(draft.loadContacts || []).filter((entry) => entry.loadId !== id)];
+    }
     return load;
   });
 }
 
 export function deleteLoad(id) {
-  if (!DEMO_MODE) return removeRecord('loads', id).then(() => true);
+  if (!DEMO_MODE) {
+    const batch = writeBatch(firebaseDb);
+    batch.delete(doc(firebaseDb, 'loads', id));
+    batch.delete(doc(firebaseDb, 'loadContacts', id));
+    batch.delete(doc(firebaseDb, 'deliveries', id));
+    (state.deliveryConfirmations || [])
+      .filter((entry) => entry.loadId === id)
+      .forEach((entry) => batch.delete(doc(firebaseDb, 'deliveryConfirmations', entry.id)));
+    return batch.commit().then(() => {
+      state = {
+        ...state,
+        loads: state.loads.filter((entry) => entry.id !== id),
+        loadContacts: (state.loadContacts || []).filter((entry) => entry.loadId !== id),
+        deliveries: (state.deliveries || []).filter((entry) => entry.loadId !== id),
+        deliveryConfirmations: (state.deliveryConfirmations || []).filter(
+          (entry) => entry.loadId !== id
+        )
+      };
+      listeners.forEach((listener) => listener());
+      return true;
+    });
+  }
   return commit((draft) => {
     draft.loads = draft.loads.filter((entry) => entry.id !== id);
+    draft.loadContacts = (draft.loadContacts || []).filter((entry) => entry.loadId !== id);
+    draft.deliveries = (draft.deliveries || []).filter((entry) => entry.loadId !== id);
+    draft.deliveryConfirmations = (draft.deliveryConfirmations || []).filter(
+      (entry) => entry.loadId !== id
+    );
     return true;
   });
 }
@@ -718,20 +867,564 @@ export function claimLoad(loadId, member) {
 }
 
 export function reopenLoad(id) {
-  if (!DEMO_MODE) return updateLoad(id, { status: 'open', filledBy: '', filledById: '', filledAt: '' });
+  const reset = {
+    status: 'open',
+    filledBy: '',
+    filledById: '',
+    filledAt: '',
+    deliveredAt: '',
+    deliveryConfirmedAt: ''
+  };
+
+  if (!DEMO_MODE) {
+    const batch = writeBatch(firebaseDb);
+    const { id: _id, ...current } = getRecord('loads', id);
+    batch.set(doc(firebaseDb, 'loads', id), { ...current, ...reset });
+    batch.delete(doc(firebaseDb, 'deliveries', id));
+    (state.deliveryConfirmations || [])
+      .filter((entry) => entry.loadId === id)
+      .forEach((entry) => batch.delete(doc(firebaseDb, 'deliveryConfirmations', entry.id)));
+    return batch.commit().then(() => {
+      state = {
+        ...state,
+        loads: state.loads.map((entry) => (entry.id === id ? { ...entry, ...reset } : entry)),
+        deliveries: (state.deliveries || []).filter((entry) => entry.loadId !== id),
+        deliveryConfirmations: (state.deliveryConfirmations || []).filter(
+          (entry) => entry.loadId !== id
+        )
+      };
+      listeners.forEach((listener) => listener());
+      return true;
+    });
+  }
+
   return commit((draft) => {
     const load = draft.loads.find((entry) => entry.id === id);
     if (!load) return null;
-    load.status = 'open';
-    load.filledBy = '';
-    load.filledById = '';
-    load.filledAt = '';
+    Object.assign(load, reset);
+    draft.deliveries = (draft.deliveries || []).filter((entry) => entry.loadId !== id);
+    draft.deliveryConfirmations = (draft.deliveryConfirmations || []).filter(
+      (entry) => entry.loadId !== id
+    );
     return load;
+  });
+}
+
+/* ------------------------------------------------------------------
+   Deliveries
+------------------------------------------------------------------ */
+
+export function getLoadContact(loadId) {
+  return loadContactFrom(state, loadId);
+}
+
+export function getDelivery(loadId) {
+  return (state.deliveries || []).find((entry) => entry.loadId === loadId) || null;
+}
+
+export function getDeliveryConfirmations() {
+  return (state.deliveryConfirmations || []).slice();
+}
+
+export function getPendingDeliveryConfirmations() {
+  return (state.deliveryConfirmations || []).filter((entry) => entry.status === 'pending');
+}
+
+export async function markLoadDelivered(loadId, member, { note, photo } = {}) {
+  const deliveredAt = new Date().toISOString();
+
+  if (!DEMO_MODE) {
+    const uidValue = firebaseAuth.currentUser?.uid;
+    if (!uidValue) throw new Error('Sign in as a member to update this load.');
+    const loadRef = doc(firebaseDb, 'loads', loadId);
+    return runTransaction(firebaseDb, async (transaction) => {
+      const snapshot = await transaction.get(loadRef);
+      if (!snapshot.exists()) throw new Error('Load not found.');
+      const data = snapshot.data();
+      if (data.status !== 'filled') throw new Error('This load is not waiting for a delivery.');
+      if (data.filledById !== uidValue) {
+        throw new Error('Only the driver who claimed this load can mark it delivered.');
+      }
+      const delivery = buildDeliveryRecord(
+        { id: loadId, reference: data.reference },
+        member,
+        { note, photo },
+        new Date(deliveredAt)
+      );
+      const { loadId: _loadId, ...deliveryData } = delivery;
+      transaction.set(doc(firebaseDb, 'deliveries', loadId), { ...deliveryData, loadId });
+      transaction.update(loadRef, { status: 'delivered', deliveredAt });
+      return {
+        load: { ...data, id: loadId, status: 'delivered', deliveredAt },
+        delivery: { ...delivery, id: loadId }
+      };
+    }).then((result) => {
+      state = {
+        ...state,
+        loads: state.loads.map((entry) => (entry.id === loadId ? result.load : entry)),
+        deliveries: [
+          result.delivery,
+          ...(state.deliveries || []).filter((entry) => entry.loadId !== loadId)
+        ]
+      };
+      listeners.forEach((listener) => listener());
+      return result;
+    });
+  }
+
+  return commit((draft) => {
+    const load = draft.loads.find((entry) => entry.id === loadId);
+    if (!load) throw new Error('Load not found.');
+    if (load.status !== 'filled') throw new Error('This load is not waiting for a delivery.');
+    if (load.filledById !== (member?.id || '')) {
+      throw new Error('Only the driver who claimed this load can mark it delivered.');
+    }
+    const delivery = buildDeliveryRecord(load, member, { note, photo }, new Date(deliveredAt));
+    load.status = 'delivered';
+    load.deliveredAt = deliveredAt;
+    draft.deliveries = [
+      { ...delivery, id: loadId },
+      ...(draft.deliveries || []).filter((entry) => entry.loadId !== loadId)
+    ];
+    return { load, delivery: { ...delivery, id: loadId } };
+  });
+}
+
+export async function confirmDelivery(
+  loadId,
+  { reviewer, outcome = 'delivered', note = '', source = 'staff' } = {}
+) {
+  const confirmedAt = new Date().toISOString();
+  const confirmedBy = String(reviewer || 'Union staff').trim() || 'Union staff';
+  const deliveryStatus = outcome === 'problem' ? 'disputed' : 'confirmed';
+  const loadStatus = outcome === 'problem' ? 'disputed' : 'closed';
+  const shipperNote = String(note || '').trim();
+
+  if (!DEMO_MODE) {
+    const delivery = getRecord('deliveries', loadId);
+    if (!delivery) throw new Error('There is no delivery record for this load.');
+    const patch = {
+      status: deliveryStatus,
+      confirmedAt,
+      confirmedBy,
+      confirmationSource: source,
+      shipperNote
+    };
+    const batch = writeBatch(firebaseDb);
+    batch.update(doc(firebaseDb, 'deliveries', loadId), patch);
+    batch.update(doc(firebaseDb, 'loads', loadId), {
+      status: loadStatus,
+      deliveryConfirmedAt: confirmedAt
+    });
+    await batch.commit();
+    const updated = { ...delivery, ...patch };
+    state = {
+      ...state,
+      deliveries: state.deliveries.map((entry) => (entry.loadId === loadId ? updated : entry)),
+      loads: state.loads.map((entry) =>
+        entry.id === loadId
+          ? { ...entry, status: loadStatus, deliveryConfirmedAt: confirmedAt }
+          : entry
+      )
+    };
+    listeners.forEach((listener) => listener());
+    return updated;
+  }
+
+  return commit((draft) => {
+    const delivery = (draft.deliveries || []).find((entry) => entry.loadId === loadId);
+    if (!delivery) throw new Error('There is no delivery record for this load.');
+    Object.assign(delivery, {
+      status: deliveryStatus,
+      confirmedAt,
+      confirmedBy,
+      confirmationSource: source,
+      shipperNote
+    });
+    const load = draft.loads.find((entry) => entry.id === loadId);
+    if (load) {
+      load.status = loadStatus;
+      load.deliveryConfirmedAt = confirmedAt;
+    }
+    return delivery;
+  });
+}
+
+export async function submitDeliveryConfirmation(payload) {
+  const reference = String(payload?.reference || '').trim().toUpperCase();
+  const contactEmail = normalizeEmail(payload?.contactEmail);
+  const outcome = payload?.outcome === 'problem' ? 'problem' : 'delivered';
+  const note = String(payload?.note || '').trim();
+  const createdAt = new Date().toISOString();
+
+  if (!DEMO_MODE) {
+    const snapshot = await getDocs(
+      query(collection(firebaseDb, 'loads'), where('reference', '==', reference))
+    );
+    const load = snapshot.docs
+      .map((entry) => ({ id: entry.id, ...entry.data() }))
+      .find((entry) => entry.status === 'delivered');
+    if (!load) {
+      throw new Error(
+        'We could not find a delivered load with that reference yet. Check the reference and try again.'
+      );
+    }
+    const record = {
+      loadId: load.id,
+      loadReference: load.reference,
+      outcome,
+      note,
+      contactEmail,
+      status: 'pending',
+      createdAt
+    };
+    try {
+      const saved = await addDoc(collection(firebaseDb, 'deliveryConfirmations'), record);
+      return { id: saved.id, ...record, load };
+    } catch (error) {
+      if (error?.code === 'permission-denied') {
+        throw new Error('That reference and email did not match our records.');
+      }
+      throw error;
+    }
+  }
+
+  return commit((draft) => {
+    const load = (draft.loads || []).find(
+      (entry) => entry.reference === reference && entry.status === 'delivered'
+    );
+    if (!load) {
+      throw new Error(
+        'We could not find a delivered load with that reference yet. Check the reference and try again.'
+      );
+    }
+    const contact = loadContactFrom(draft, load.id);
+    if (!contact || normalizeEmail(contact.contactEmail) !== contactEmail) {
+      throw new Error('That reference and email did not match our records.');
+    }
+    const record = {
+      id: uid('dc'),
+      loadId: load.id,
+      loadReference: load.reference,
+      outcome,
+      note,
+      contactEmail,
+      status: 'pending',
+      createdAt,
+      reviewedAt: '',
+      reviewedBy: ''
+    };
+    draft.deliveryConfirmations = [record, ...(draft.deliveryConfirmations || [])];
+    return { ...record, load };
+  });
+}
+
+export async function acceptDeliveryConfirmation(id, reviewer) {
+  const reviewedAt = new Date().toISOString();
+  const reviewedBy = String(reviewer || 'Union staff').trim() || 'Union staff';
+
+  if (!DEMO_MODE) {
+    const confirmation = getRecord('deliveryConfirmations', id);
+    if (!confirmation) throw new Error('That confirmation could not be found.');
+    if (confirmation.status !== 'pending') throw new Error('That confirmation has already been reviewed.');
+    const delivery = getRecord('deliveries', confirmation.loadId);
+    if (!delivery) throw new Error('There is no delivery record for this load.');
+
+    const outcome = confirmation.outcome === 'problem' ? 'disputed' : 'confirmed';
+    const loadStatus = confirmation.outcome === 'problem' ? 'disputed' : 'closed';
+    const batch = writeBatch(firebaseDb);
+    batch.update(doc(firebaseDb, 'deliveryConfirmations', id), {
+      status: 'accepted',
+      reviewedAt,
+      reviewedBy
+    });
+    batch.update(doc(firebaseDb, 'deliveries', confirmation.loadId), {
+      status: outcome,
+      confirmedAt: reviewedAt,
+      confirmedBy: reviewedBy,
+      confirmationSource: 'shipper',
+      shipperNote: confirmation.note || '',
+      shipperContact: confirmation.contactEmail || '',
+      shipperConfirmedAt: confirmation.createdAt || ''
+    });
+    batch.update(doc(firebaseDb, 'loads', confirmation.loadId), {
+      status: loadStatus,
+      deliveryConfirmedAt: reviewedAt
+    });
+    await batch.commit();
+
+    state = {
+      ...state,
+      deliveryConfirmations: state.deliveryConfirmations.map((entry) =>
+        entry.id === id ? { ...entry, status: 'accepted', reviewedAt, reviewedBy } : entry
+      ),
+      deliveries: state.deliveries.map((entry) =>
+        entry.loadId === confirmation.loadId
+          ? {
+              ...entry,
+              status: outcome,
+              confirmedAt: reviewedAt,
+              confirmedBy: reviewedBy,
+              confirmationSource: 'shipper',
+              shipperNote: confirmation.note || '',
+              shipperContact: confirmation.contactEmail || '',
+              shipperConfirmedAt: confirmation.createdAt || ''
+            }
+          : entry
+      ),
+      loads: state.loads.map((entry) =>
+        entry.id === confirmation.loadId
+          ? { ...entry, status: loadStatus, deliveryConfirmedAt: reviewedAt }
+          : entry
+      )
+    };
+    listeners.forEach((listener) => listener());
+    return { loadStatus };
+  }
+
+  return commit((draft) => {
+    const confirmation = (draft.deliveryConfirmations || []).find((entry) => entry.id === id);
+    if (!confirmation) throw new Error('That confirmation could not be found.');
+    if (confirmation.status !== 'pending') throw new Error('That confirmation has already been reviewed.');
+    const delivery = (draft.deliveries || []).find((entry) => entry.loadId === confirmation.loadId);
+    if (!delivery) throw new Error('There is no delivery record for this load.');
+
+    const outcome = confirmation.outcome === 'problem' ? 'disputed' : 'confirmed';
+    const loadStatus = confirmation.outcome === 'problem' ? 'disputed' : 'closed';
+    Object.assign(confirmation, { status: 'accepted', reviewedAt, reviewedBy });
+    Object.assign(delivery, {
+      status: outcome,
+      confirmedAt: reviewedAt,
+      confirmedBy: reviewedBy,
+      confirmationSource: 'shipper',
+      shipperNote: confirmation.note || '',
+      shipperContact: confirmation.contactEmail || '',
+      shipperConfirmedAt: confirmation.createdAt || ''
+    });
+    const load = draft.loads.find((entry) => entry.id === confirmation.loadId);
+    if (load) {
+      load.status = loadStatus;
+      load.deliveryConfirmedAt = reviewedAt;
+    }
+    return { loadStatus };
+  });
+}
+
+export function dismissDeliveryConfirmation(id, reviewer) {
+  const reviewedAt = new Date().toISOString();
+  const reviewedBy = String(reviewer || 'Union staff').trim() || 'Union staff';
+  const patch = { status: 'dismissed', reviewedAt, reviewedBy };
+
+  if (!DEMO_MODE) {
+    return updateDoc(doc(firebaseDb, 'deliveryConfirmations', id), patch).then(() => {
+      state = {
+        ...state,
+        deliveryConfirmations: state.deliveryConfirmations.map((entry) =>
+          entry.id === id ? { ...entry, ...patch } : entry
+        )
+      };
+      listeners.forEach((listener) => listener());
+      return true;
+    });
+  }
+
+  return commit((draft) => {
+    const confirmation = (draft.deliveryConfirmations || []).find((entry) => entry.id === id);
+    if (!confirmation) return false;
+    Object.assign(confirmation, patch);
+    return true;
   });
 }
 
 export function getOpenLoads() {
   return state.loads.filter((entry) => entry.status === 'open');
+}
+
+/* ------------------------------------------------------------------
+   Public load requests (moderated)
+------------------------------------------------------------------ */
+
+function cleanLoadRequest(payload) {
+  return {
+    title: String(payload.title || '').trim(),
+    shipper: String(payload.shipper || '').trim(),
+    contactName: String(payload.contactName || '').trim(),
+    contactPhone: String(payload.contactPhone || '').trim(),
+    contactEmail: String(payload.contactEmail || '').trim().toLowerCase(),
+    origin: String(payload.origin || '').trim(),
+    destination: String(payload.destination || '').trim(),
+    vehicleType: payload.vehicleType || 'Dry van',
+    weightTons: Number(payload.weightTons) || 0,
+    rate: Number(payload.rate) || 0,
+    pickupDate: payload.pickupDate || '',
+    deliveryDate: payload.deliveryDate || '',
+    requirements: String(payload.requirements || '').trim(),
+    status: 'pending',
+    source: 'public',
+    createdAt: new Date().toISOString()
+  };
+}
+
+export async function submitLoadRequest(payload) {
+  if (String(payload?.website || '').trim()) {
+    throw new Error('Your request could not be submitted. Please try again.');
+  }
+  const errors = validateLoadRequest(payload);
+  if (Object.keys(errors).length) {
+    throw new Error(Object.values(errors)[0]);
+  }
+  const record = cleanLoadRequest(payload);
+
+  if (!DEMO_MODE) {
+    const saved = { reference: `LR-${Date.now()}`, ...record };
+    const ref = await addDoc(collection(firebaseDb, 'loadRequests'), saved);
+    return { id: ref.id, ...saved };
+  }
+
+  return commit((draft) => {
+    if (!Array.isArray(draft.loadRequests)) draft.loadRequests = [];
+    const saved = {
+      id: uid('req'),
+      reference: nextReference(draft, 'loadRequest'),
+      ...record
+    };
+    draft.loadRequests.unshift(saved);
+    return saved;
+  });
+}
+
+export function getLoadRequests() {
+  return (state.loadRequests || []).slice();
+}
+
+export function getPendingLoadRequests() {
+  return (state.loadRequests || []).filter((request) => request.status === 'pending');
+}
+
+export async function approveLoadRequest(id, reviewer, overrides = {}) {
+  const reviewedAt = new Date().toISOString();
+  const reviewedBy = String(reviewer || 'Union staff').trim() || 'Union staff';
+
+  if (!DEMO_MODE) {
+    const request = getRecord('loadRequests', id);
+    if (!request) throw new Error('That load request could not be found.');
+    if (request.status !== 'pending') throw new Error('That request has already been reviewed.');
+
+    const load = {
+      id: uid('load'),
+      reference: `LD-${Date.now()}`,
+      ...buildLoadFromRequest(request, overrides)
+    };
+    const contact = loadContactRecord(load.id, contactFromLoadRequest(request));
+    const { id: _loadId, ...loadData } = load;
+    const updatedRequest = {
+      ...request,
+      status: 'approved',
+      reviewedAt,
+      reviewedBy,
+      rejectionReason: '',
+      loadId: load.id,
+      loadReference: load.reference
+    };
+    const batch = writeBatch(firebaseDb);
+    batch.set(doc(firebaseDb, 'loads', load.id), loadData);
+    batch.set(doc(firebaseDb, 'loadContacts', load.id), {
+      loadId: load.id,
+      contactName: contact.contactName,
+      contactPhone: contact.contactPhone,
+      contactEmail: contact.contactEmail
+    });
+    batch.update(doc(firebaseDb, 'loadRequests', id), {
+      status: 'approved',
+      reviewedAt,
+      reviewedBy,
+      rejectionReason: '',
+      loadId: load.id,
+      loadReference: load.reference
+    });
+    await batch.commit();
+
+    state = {
+      ...state,
+      loads: [load, ...state.loads],
+      loadContacts: [contact, ...(state.loadContacts || [])],
+      loadRequests: state.loadRequests.map((entry) => (entry.id === id ? updatedRequest : entry))
+    };
+    listeners.forEach((listener) => listener());
+    return { request: updatedRequest, load };
+  }
+
+  return commit((draft) => {
+    const request = (draft.loadRequests || []).find((entry) => entry.id === id);
+    if (!request) throw new Error('That load request could not be found.');
+    if (request.status !== 'pending') throw new Error('That request has already been reviewed.');
+
+    const load = {
+      id: uid('load'),
+      reference: nextReference(draft, 'load'),
+      ...buildLoadFromRequest(request, overrides)
+    };
+    const contact = loadContactRecord(load.id, contactFromLoadRequest(request));
+    draft.loads.unshift(load);
+    draft.loadContacts = [contact, ...(draft.loadContacts || [])];
+    Object.assign(request, {
+      status: 'approved',
+      reviewedAt,
+      reviewedBy,
+      rejectionReason: '',
+      loadId: load.id,
+      loadReference: load.reference
+    });
+    return { request, load };
+  });
+}
+
+export async function rejectLoadRequest(id, reason, reviewer) {
+  const reviewedAt = new Date().toISOString();
+  const reviewedBy = String(reviewer || 'Union staff').trim() || 'Union staff';
+  const rejectionReason = String(reason || '').trim();
+
+  if (!DEMO_MODE) {
+    const request = getRecord('loadRequests', id);
+    if (!request) throw new Error('That load request could not be found.');
+    if (request.status !== 'pending') throw new Error('That request has already been reviewed.');
+
+    await updateDoc(doc(firebaseDb, 'loadRequests', id), {
+      status: 'rejected',
+      rejectionReason,
+      reviewedAt,
+      reviewedBy
+    });
+    const updated = { ...request, status: 'rejected', rejectionReason, reviewedAt, reviewedBy };
+    state = {
+      ...state,
+      loadRequests: state.loadRequests.map((entry) => (entry.id === id ? updated : entry))
+    };
+    listeners.forEach((listener) => listener());
+    return updated;
+  }
+
+  return commit((draft) => {
+    const request = (draft.loadRequests || []).find((entry) => entry.id === id);
+    if (!request) throw new Error('That load request could not be found.');
+    if (request.status !== 'pending') throw new Error('That request has already been reviewed.');
+    Object.assign(request, { status: 'rejected', rejectionReason, reviewedAt, reviewedBy });
+    return request;
+  });
+}
+
+export function deleteLoadRequest(id) {
+  if (!DEMO_MODE) {
+    return deleteDoc(doc(firebaseDb, 'loadRequests', id)).then(() => {
+      state = { ...state, loadRequests: state.loadRequests.filter((entry) => entry.id !== id) };
+      listeners.forEach((listener) => listener());
+      return true;
+    });
+  }
+  return commit((draft) => {
+    draft.loadRequests = (draft.loadRequests || []).filter((entry) => entry.id !== id);
+    return true;
+  });
 }
 
 /* ------------------------------------------------------------------

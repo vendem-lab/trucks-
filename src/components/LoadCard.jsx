@@ -2,7 +2,7 @@ import Icon from './Icon.jsx';
 import StatusBadge from './StatusBadge.jsx';
 import { formatCurrency, formatShortDate, timeAgo } from '../lib/format.js';
 
-export default function LoadCard({ load, unlocked = false, showContact = false, children }) {
+export default function LoadCard({ load, contact = null, unlocked = false, showContact = false, children }) {
   return (
     <article className="load-card">
       <div className="load-card-head">
@@ -38,12 +38,12 @@ export default function LoadCard({ load, unlocked = false, showContact = false, 
 
       {load.requirements && <p className="load-req">{load.requirements}</p>}
 
-      {showContact && unlocked && (
+      {showContact && unlocked && contact && (
         <div className="load-contact">
           <Icon name="phone" size={15} />
           <div>
-            <strong>{load.contactName}</strong>
-            <span>{load.contactPhone} · {load.contactEmail}</span>
+            <strong>{contact.contactName}</strong>
+            <span>{contact.contactPhone} · {contact.contactEmail}</span>
           </div>
         </div>
       )}
@@ -51,6 +51,12 @@ export default function LoadCard({ load, unlocked = false, showContact = false, 
       {load.status === 'filled' && load.filledBy && (
         <div className="load-filled">
           <Icon name="checkCircle" size={15} /> Claimed by {load.filledBy}
+        </div>
+      )}
+
+      {load.status === 'delivered' && load.filledBy && (
+        <div className="load-filled">
+          <Icon name="truck" size={15} /> Delivered by {load.filledBy} · awaiting shipper confirmation
         </div>
       )}
 

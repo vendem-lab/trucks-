@@ -27,6 +27,7 @@ import News from './pages/News.jsx';
 import NewsArticle from './pages/NewsArticle.jsx';
 import Events from './pages/Events.jsx';
 import Contact from './pages/Contact.jsx';
+import ConfirmDelivery from './pages/ConfirmDelivery.jsx';
 import Login from './pages/Login.jsx';
 import NotFound from './pages/NotFound.jsx';
 
@@ -38,6 +39,7 @@ import PortalAlerts from './pages/portal/Alerts.jsx';
 import Dashboard from './pages/admin/Dashboard.jsx';
 import Members from './pages/admin/Members.jsx';
 import LoadsAdmin from './pages/admin/Loads.jsx';
+import LoadRequestsAdmin from './pages/admin/LoadRequests.jsx';
 import DuesAdmin from './pages/admin/Dues.jsx';
 import NewsAdmin from './pages/admin/NewsAdmin.jsx';
 import EventsAdmin from './pages/admin/EventsAdmin.jsx';
@@ -61,6 +63,7 @@ export default function App() {
               <Route path="/news/:id" element={<NewsArticle />} />
               <Route path="/events" element={<Events />} />
               <Route path="/contact" element={<Contact />} />
+              <Route path="/confirm-delivery" element={<ConfirmDelivery />} />
               <Route path="*" element={<NotFound />} />
             </Route>
 
@@ -92,6 +95,7 @@ export default function App() {
               <Route index element={<Dashboard />} />
               <Route path="members" element={<Members />} />
               <Route path="loads" element={<LoadsAdmin />} />
+              <Route path="load-requests" element={<LoadRequestsAdmin />} />
               <Route path="dues" element={<DuesAdmin />} />
               <Route path="news" element={<NewsAdmin />} />
               <Route path="events" element={<EventsAdmin />} />

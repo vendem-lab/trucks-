@@ -12,7 +12,13 @@ const LABELS = {
   waived: 'Waived',
   upcoming: 'Upcoming',
   past: 'Past',
-  draft: 'Draft'
+  draft: 'Draft',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  delivered: 'Delivered',
+  disputed: 'Disputed',
+  confirmed: 'Confirmed',
+  submitted: 'Awaiting confirmation'
 };
 
 const TONES = {
@@ -29,7 +35,13 @@ const TONES = {
   waived: 'muted',
   upcoming: 'info',
   past: 'muted',
-  draft: 'muted'
+  draft: 'muted',
+  approved: 'success',
+  rejected: 'danger',
+  delivered: 'info',
+  disputed: 'danger',
+  confirmed: 'success',
+  submitted: 'warning'
 };
 
 export default function StatusBadge({ status, label, dot = true }) {

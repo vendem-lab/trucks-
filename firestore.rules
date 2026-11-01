@@ -28,6 +28,107 @@ service cloud.firestore {
         && (data.photo.matches('^data:image/(jpeg|png|webp);base64,.+')
           || data.photo.matches('^/fleet/[a-z-]+\\.svg$'));
     }
+    function validLoadRequest(data) {
+      return data.keys().hasOnly([
+          'reference', 'title', 'shipper', 'contactName', 'contactPhone',
+          'contactEmail', 'origin', 'destination', 'vehicleType', 'weightTons',
+          'rate', 'pickupDate', 'deliveryDate', 'requirements', 'status',
+          'source', 'createdAt'
+        ])
+        && data.status == 'pending'
+        && data.source == 'public'
+        && data.reference is string
+        && data.reference.size() <= 40
+        && data.reference.matches('^LR-[0-9-]+$')
+        && data.title is string
+        && data.title.size() >= 3
+        && data.title.size() <= 120
+        && data.shipper is string
+        && data.shipper.size() >= 2
+        && data.shipper.size() <= 120
+        && data.contactName is string
+        && data.contactName.size() >= 2
+        && data.contactName.size() <= 120
+        && data.contactPhone is string
+        && data.contactPhone.size() >= 7
+        && data.contactPhone.size() <= 40
+        && data.contactEmail is string
+        && data.contactEmail.size() <= 160
+        && data.contactEmail.matches('^[^@]+@[^@]+[.][^@]+$')
+        && data.origin is string
+        && data.origin.size() >= 2
+        && data.origin.size() <= 80
+        && data.destination is string
+        && data.destination.size() >= 2
+        && data.destination.size() <= 80
+        && data.vehicleType in [
+          '1-tonne truck', '2-tonne truck', '3-tonne truck', '4-tonne truck',
+          '5-tonne truck', 'Dry van', 'Reefer', 'Flatbed', 'Tanker',
+          'Curtain-side', 'Tipper', 'Low bed', 'Bus / passenger'
+        ]
+        && data.weightTons is number
+        && data.weightTons > 0
+        && data.weightTons <= 100
+        && data.rate is number
+        && data.rate > 0
+        && data.rate <= 1000000
+        && data.pickupDate is string
+        && data.pickupDate.size() == 10
+        && data.deliveryDate is string
+        && data.deliveryDate.size() <= 10
+        && data.requirements is string
+        && data.requirements.size() <= 600
+        && data.createdAt is string
+        && data.createdAt.size() <= 40;
+    }
+    function hasShipperContact(data) {
+      return data.keys().hasAny(['contactName', 'contactPhone', 'contactEmail']);
+    }
+    function loadPath(id) { return /databases/$(database)/documents/loads/$(id); }
+    function contactPath(id) { return /databases/$(database)/documents/loadContacts/$(id); }
+    function deliveryPath(id) { return /databases/$(database)/documents/deliveries/$(id); }
+    function validDelivery(data) {
+      return data.keys().hasOnly([
+          'loadId', 'loadReference', 'memberId', 'memberName', 'deliveredAt',
+          'note', 'photo', 'status', 'confirmedAt', 'confirmedBy',
+          'confirmationSource', 'shipperNote', 'shipperContact', 'shipperConfirmedAt'
+        ])
+        && data.status == 'submitted'
+        && data.confirmedAt == ''
+        && data.confirmedBy == ''
+        && data.memberId is string
+        && data.memberName is string
+        && data.memberName.size() >= 2
+        && data.memberName.size() <= 120
+        && data.deliveredAt is string
+        && data.deliveredAt.size() <= 40
+        && data.note is string
+        && data.note.size() >= 5
+        && data.note.size() <= 600
+        && data.photo is string
+        && data.photo.size() < 900000
+        && (data.photo == ''
+          || data.photo.matches('^data:image/(jpeg|png|webp);base64,.+'));
+    }
+    function validDeliveryConfirmation(data) {
+      return data.keys().hasOnly([
+          'loadId', 'loadReference', 'outcome', 'note', 'contactEmail',
+          'status', 'createdAt'
+        ])
+        && data.status == 'pending'
+        && data.outcome in ['delivered', 'problem']
+        && data.loadId is string
+        && data.loadReference is string
+        && data.loadReference.size() <= 40
+        && data.loadReference.matches('^LD-[0-9-]+$')
+        && data.contactEmail is string
+        && data.contactEmail.size() <= 160
+        && data.contactEmail.matches('^[^@]+@[^@]+[.][^@]+$')
+        && data.note is string
+        && data.note.size() <= 600
+        && data.createdAt is string
+        && data.createdAt.size() <= 40;
+    }
 
     match /users/{uid} {
       allow create: if isSelf(uid)
@@ -91,16 +192,71 @@ service cloud.firestore {
 
     match /loads/{id} {
       allow read: if true;
-      allow create, delete: if isStaff();
-      // Active members claim an open load by writing only the claim fields.
-      allow update: if isStaff()
+      // Shipper contact details live in loadContacts so the public board never
+      // carries phone numbers or email addresses.
+      allow create: if isStaff() && !hasShipperContact(request.resource.data);
+      allow delete: if isStaff();
+      allow update: if (isStaff() && !hasShipperContact(request.resource.data))
+        // Active members claim an open load by writing only the claim fields.
         || (isActiveMember(request.auth.uid)
           && resource.data.status == 'open'
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'status', 'filledBy', 'filledById', 'filledAt'
           ])
           && request.resource.data.status == 'filled'
-          && request.resource.data.filledById == request.auth.uid);
+          && request.resource.data.filledById == request.auth.uid)
+        // The claiming driver marks the load delivered and records the
+        // delivery evidence in the same transaction.
+        || (isActiveMember(request.auth.uid)
+          && resource.data.status == 'filled'
+          && resource.data.filledById == request.auth.uid
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+            'status', 'deliveredAt'
+          ])
+          && request.resource.data.status == 'delivered'
+          && existsAfter(deliveryPath(id)));
+    }
+    match /loadContacts/{loadId} {
+      // Contact details are never public. Signed-in users may read them, and
+      // the interface only displays them to active members. Staff maintain them.
+      allow read: if signedIn();
+      allow create, update, delete: if isStaff();
+    }
+    match /deliveries/{loadId} {
+      allow read: if isStaff()
+        || (signedIn()
+          && exists(loadPath(loadId))
+          && get(loadPath(loadId)).data.get('filledById', '') == request.auth.uid);
+      // Only the driver who claimed the load may record its delivery, and only
+      // while the load is still waiting on that delivery.
+      allow create: if isActiveMember(request.auth.uid)
+        && request.resource.data.loadId == loadId
+        && request.resource.data.memberId == request.auth.uid
+        && exists(loadPath(loadId))
+        && get(loadPath(loadId)).data.get('status', '') == 'filled'
+        && get(loadPath(loadId)).data.get('filledById', '') == request.auth.uid
+        && validDelivery(request.resource.data);
+      allow update, delete: if isStaff();
+    }
+    match /deliveryConfirmations/{id} {
+      // Shippers confirm anonymously: the load reference and the contact email
+      // on the private loadContacts document act as the two factors.
+      allow create: if validDeliveryConfirmation(request.resource.data)
+        && exists(loadPath(request.resource.data.loadId))
+        && get(loadPath(request.resource.data.loadId)).data.get('status', '') == 'delivered'
+        && get(loadPath(request.resource.data.loadId)).data.get('reference', '')
+          == request.resource.data.loadReference
+        && exists(contactPath(request.resource.data.loadId))
+        && get(contactPath(request.resource.data.loadId)).data.get('contactEmail', '')
+          == request.resource.data.contactEmail;
+      allow read, update: if isStaff();
+      allow delete: if isStaff();
+    }
+    match /loadRequests/{id} {
+      // Anyone may submit a load for review, but only staff can read or
+      // change the queue. Approval creates the public load document.
+      allow create: if validLoadRequest(request.resource.data);
+      allow read, update, delete: if isStaff();
     }
     match /news/{id} {
       allow read: if true;

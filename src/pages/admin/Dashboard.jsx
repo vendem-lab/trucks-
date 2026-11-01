@@ -15,8 +15,13 @@ export default function Dashboard() {
     const activeMembers = state.members.filter((member) => member.status === 'active');
     const pendingMembers = state.members.filter((member) => member.status === 'pending');
     const pendingApplications = (state.applications || []).filter((application) => application.status === 'pending');
+    const pendingRequests = (state.loadRequests || []).filter((request) => request.status === 'pending');
     const pendingCount = pendingMembers.length + pendingApplications.length;
     const openLoads = state.loads.filter((load) => load.status === 'open');
+    const deliveredLoads = state.loads.filter((load) => load.status === 'delivered');
+    const pendingConfirmations = (state.deliveryConfirmations || []).filter(
+      (entry) => entry.status === 'pending'
+    );
     const unread = state.messages.filter((message) => !message.read);
     const period = currentPeriod();
     const collected = state.dues
@@ -26,7 +31,21 @@ export default function Dashboard() {
       .filter((invoice) => ['due', 'overdue'].includes(invoice.status))
       .reduce((sum, invoice) => sum + Number(invoice.amount || 0), 0);
     const overdue = state.dues.filter((invoice) => invoice.status === 'overdue');
-    return { activeMembers, pendingMembers, pendingApplications, pendingCount, openLoads, unread, collected, outstanding, overdue, period };
+    return {
+      activeMembers,
+      pendingMembers,
+      pendingApplications,
+      pendingRequests,
+      pendingCount,
+      openLoads,
+      deliveredLoads,
+      pendingConfirmations,
+      unread,
+      collected,
+      outstanding,
+      overdue,
+      period
+    };
   }, [state]);
 
   const months = useMemo(() => {
@@ -92,9 +111,13 @@ export default function Dashboard() {
         />
         <StatCard
           icon="idCard"
-          label="Pending applications"
-          value={stats.pendingCount}
-          hint={stats.pendingCount ? 'Waiting for review' : 'Nothing waiting'}
+          label="Pending reviews"
+          value={stats.pendingCount + stats.pendingRequests.length}
+          hint={
+            stats.pendingCount + stats.pendingRequests.length
+              ? `${stats.pendingCount} applications · ${stats.pendingRequests.length} load requests`
+              : 'Nothing waiting'
+          }
           tone="amber"
         />
         <StatCard
@@ -336,6 +359,27 @@ export default function Dashboard() {
               <div>
                 <strong>Review applications</strong>
                 <span>{stats.pendingMembers.length} waiting for approval</span>
+              </div>
+              <Icon name="chevronRight" size={16} />
+            </Link>
+            <Link to="/admin/load-requests" className="quick-action">
+              <span className="quick-action-icon"><Icon name="fileText" size={18} /></span>
+              <div>
+                <strong>Review load requests</strong>
+                <span>{stats.pendingRequests.length} waiting for verification</span>
+              </div>
+              <Icon name="chevronRight" size={16} />
+            </Link>
+            <Link to="/admin/loads?status=delivered" className="quick-action">
+              <span className="quick-action-icon"><Icon name="truck" size={18} /></span>
+              <div>
+                <strong>Confirm deliveries</strong>
+                <span>
+                  {stats.deliveredLoads.length} awaiting confirmation
+                  {stats.pendingConfirmations.length
+                    ? ` · ${stats.pendingConfirmations.length} shipper replies`
+                    : ''}
+                </span>
               </div>
               <Icon name="chevronRight" size={16} />
             </Link>

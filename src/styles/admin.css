@@ -38,6 +38,10 @@
   min-width: 820px;
 }
 
+.load-request-table {
+  min-width: 1040px;
+}
+
 /* Toolbar --------------------------------------------------------------- */
 
 .admin-toolbar {
@@ -53,6 +57,27 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
+}
+
+.admin-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-toolbar-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 20px;
+  height: 20px;
+  margin-left: 2px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #fef3c7;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #92400e;
 }
 
 .admin-toolbar select {
@@ -930,4 +955,84 @@
   .quote-tab {
     padding: 9px 10px;
   }
+}
+
+/* Delivery evidence ------------------------------------------------------ */
+
+.delivery-panel {
+  margin-top: 18px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: #fbfcfd;
+}
+
+.delivery-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.delivery-panel-head h3 {
+  margin: 0 0 2px;
+  font-size: 0.95rem;
+}
+
+.delivery-panel-head p {
+  margin: 0;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.delivery-proof {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--brand-dark);
+}
+
+.delivery-proof img {
+  width: 92px;
+  height: 64px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.delivery-confirmation {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  background: #fffbeb;
+}
+
+.delivery-confirmation strong {
+  display: block;
+  font-size: 0.82rem;
+  color: #92400e;
+}
+
+.delivery-confirmation p {
+  margin: 6px 0;
+  font-size: 0.8rem;
+  color: var(--text-soft);
+}
+
+.delivery-confirmation > span {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+
+.delivery-confirmation-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }

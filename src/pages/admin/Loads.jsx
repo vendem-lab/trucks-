@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import Modal from '../../components/Modal.jsx';
 import Field from '../../components/Field.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
@@ -7,14 +7,18 @@ import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
 import { LOAD_STATUSES, VEHICLE_TYPES } from '../../config.js';
 import {
+  acceptDeliveryConfirmation,
   addLoad,
+  confirmDelivery,
   deleteLoad,
+  dismissDeliveryConfirmation,
   reopenLoad,
   updateLoad,
   useStore
 } from '../../lib/store.js';
 import { formatCurrency, formatDate, formatShortDate, timeAgo } from '../../lib/format.js';
 import { calculateRoadDistance } from '../../lib/routeDistance.js';
+import { useAuth } from '../../context/authContext.js';
 import { useToast } from '../../context/ToastContext.jsx';
 
 function todayPlus(days) {
@@ -67,6 +71,7 @@ function loadToForm(load) {
 
 export default function LoadsAdmin() {
   const state = useStore();
+  const { session } = useAuth();
   const { push } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
   const [search, setSearch] = useState('');
@@ -81,14 +86,29 @@ export default function LoadsAdmin() {
   const [calculatingDistance, setCalculatingDistance] = useState(false);
 
   useEffect(() => {
+    const next = new URLSearchParams(searchParams);
+    let changed = false;
+
     if (searchParams.get('new') === '1') {
       openCreate();
-      const next = new URLSearchParams(searchParams);
       next.delete('new');
-      setSearchParams(next, { replace: true });
+      changed = true;
     }
+
+    const statusParam = searchParams.get('status');
+    if (statusParam && LOAD_STATUSES.some((status) => status.id === statusParam)) {
+      setStatusFilter(statusParam);
+      next.delete('status');
+      changed = true;
+    }
+
+    if (changed) setSearchParams(next, { replace: true });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
+
+  const pendingRequests = (state.loadRequests || []).filter(
+    (request) => request.status === 'pending'
+  ).length;
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -105,6 +125,17 @@ export default function LoadsAdmin() {
 
   const detail = detailId ? state.loads.find((load) => load.id === detailId) : null;
   const deleting = deleteId ? state.loads.find((load) => load.id === deleteId) : null;
+  const detailContact = detail
+    ? (state.loadContacts || []).find((entry) => entry.loadId === detail.id) || null
+    : null;
+  const detailDelivery = detail
+    ? (state.deliveries || []).find((entry) => entry.loadId === detail.id) || null
+    : null;
+  const detailConfirmation = detail
+    ? (state.deliveryConfirmations || []).find(
+        (entry) => entry.loadId === detail.id && entry.status === 'pending'
+      ) || null
+    : null;
 
   function openCreate() {
     setEditingId(null);
@@ -196,6 +227,45 @@ export default function LoadsAdmin() {
     if (detailId === deleting.id) setDetailId(null);
   };
 
+  const handleConfirmDelivery = async (outcome) => {
+    if (!detail) return;
+    try {
+      await confirmDelivery(detail.id, {
+        reviewer: session?.name,
+        outcome,
+        source: 'staff'
+      });
+      push(
+        outcome === 'problem'
+          ? `Problem recorded for ${detail.reference}.`
+          : `${detail.reference} closed as delivered.`,
+        'success'
+      );
+    } catch (error) {
+      push(error.message || 'Could not update the delivery.', 'error');
+    }
+  };
+
+  const handleAcceptConfirmation = async () => {
+    if (!detailConfirmation) return;
+    try {
+      await acceptDeliveryConfirmation(detailConfirmation.id, session?.name);
+      push('Shipper confirmation accepted.', 'success');
+    } catch (error) {
+      push(error.message || 'Could not accept the confirmation.', 'error');
+    }
+  };
+
+  const handleDismissConfirmation = async () => {
+    if (!detailConfirmation) return;
+    try {
+      await dismissDeliveryConfirmation(detailConfirmation.id, session?.name);
+      push('Shipper confirmation dismissed.', 'success');
+    } catch (error) {
+      push(error.message || 'Could not dismiss the confirmation.', 'error');
+    }
+  };
+
   return (
     <div className="admin-page">
       <div className="admin-toolbar">
@@ -230,9 +300,15 @@ export default function LoadsAdmin() {
             ))}
           </select>
         </div>
-        <button type="button" className="btn btn-primary" onClick={openCreate}>
-          <Icon name="plus" size={16} /> New load
-        </button>
+        <div className="admin-toolbar-actions">
+          <Link to="/admin/load-requests" className="btn btn-outline">
+            <Icon name="fileText" size={16} /> Requests
+            {pendingRequests > 0 && <span className="admin-toolbar-count">{pendingRequests}</span>}
+          </Link>
+          <button type="button" className="btn btn-primary" onClick={openCreate}>
+            <Icon name="plus" size={16} /> New load
+          </button>
+        </div>
       </div>
 
       <div className="admin-count">
@@ -462,6 +538,24 @@ export default function LoadsAdmin() {
               <button type="button" className="btn btn-outline" onClick={() => openEdit(detail)}>
                 <Icon name="edit" size={15} /> Edit
               </button>
+              {detail.status === 'delivered' && (
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => handleConfirmDelivery('problem')}
+                  >
+                    <Icon name="alert" size={15} /> Report problem
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => handleConfirmDelivery('delivered')}
+                  >
+                    <Icon name="checkCircle" size={15} /> Confirm delivery
+                  </button>
+                </>
+              )}
             </>
           )
         }
@@ -480,12 +574,87 @@ export default function LoadsAdmin() {
               <div><dt>Weight</dt><dd>{detail.weightTons} t</dd></div>
               <div><dt>Pickup</dt><dd>{formatDate(detail.pickupDate)}</dd></div>
               <div><dt>Delivery</dt><dd>{formatDate(detail.deliveryDate)}</dd></div>
-              <div><dt>Contact</dt><dd>{detail.contactName}<br />{detail.contactPhone}</dd></div>
-              <div><dt>Email</dt><dd>{detail.contactEmail || '—'}</dd></div>
+              <div>
+                <dt>Contact</dt>
+                <dd>
+                  {detailContact?.contactName || '—'}
+                  {detailContact?.contactPhone ? <><br />{detailContact.contactPhone}</> : null}
+                </dd>
+              </div>
+              <div><dt>Email</dt><dd>{detailContact?.contactEmail || '—'}</dd></div>
               <div><dt>Posted</dt><dd>{timeAgo(detail.postedAt)}</dd></div>
               <div><dt>Claimed by</dt><dd>{detail.filledBy || '—'}</dd></div>
               <div><dt>Claimed at</dt><dd>{detail.filledAt ? formatDate(detail.filledAt) : '—'}</dd></div>
+              <div><dt>Delivered at</dt><dd>{detail.deliveredAt ? formatDate(detail.deliveredAt) : '—'}</dd></div>
             </dl>
+
+            {detailDelivery ? (
+              <div className="delivery-panel">
+                <div className="delivery-panel-head">
+                  <div>
+                    <h3>Delivery evidence</h3>
+                    <p>
+                      Recorded by {detailDelivery.memberName} · {timeAgo(detailDelivery.deliveredAt)}
+                    </p>
+                  </div>
+                  <StatusBadge status={detailDelivery.status} />
+                </div>
+                <p className="detail-notes">
+                  <Icon name="clipboard" size={15} /> {detailDelivery.note}
+                </p>
+                {detailDelivery.photo && (
+                  <a
+                    href={detailDelivery.photo}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="delivery-proof"
+                  >
+                    <img src={detailDelivery.photo} alt="Proof of delivery" />
+                    <span>Open proof photo</span>
+                  </a>
+                )}
+                {detailConfirmation && (
+                  <div className="delivery-confirmation">
+                    <strong>Shipper confirmation pending</strong>
+                    <p>{detailConfirmation.note || 'No note was added.'}</p>
+                    <span>
+                      {detailConfirmation.contactEmail} · {timeAgo(detailConfirmation.createdAt)}
+                    </span>
+                    <div className="delivery-confirmation-actions">
+                      <button
+                        type="button"
+                        className="btn btn-outline btn-sm"
+                        onClick={handleDismissConfirmation}
+                      >
+                        Dismiss
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary btn-sm"
+                        onClick={handleAcceptConfirmation}
+                      >
+                        <Icon name="check" size={14} /> Accept confirmation
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {detailDelivery.status !== 'submitted' && (
+                  <p className="detail-notes">
+                    <Icon name="checkCircle" size={15} />
+                    {detailDelivery.status === 'confirmed'
+                      ? 'Delivery confirmed'
+                      : 'Delivery disputed'}{' '}
+                    by {detailDelivery.confirmedBy}
+                    {detailDelivery.confirmedAt ? ` · ${formatDate(detailDelivery.confirmedAt)}` : ''}
+                  </p>
+                )}
+              </div>
+            ) : detail.status === 'delivered' ? (
+              <p className="detail-notes">
+                <Icon name="alert" size={15} /> This load is marked delivered but has no delivery
+                record.
+              </p>
+            ) : null}
 
             {detail.requirements && (
               <p className="detail-notes">

@@ -544,7 +544,7 @@ export function buildSeed() {
       rate: 7600,
       pickupDate: dateOnly(-2),
       deliveryDate: dateOnly(-1),
-      status: 'filled',
+      status: 'delivered',
       postedAt: at(-5, 8, 0),
       requirements: 'Tipper with a working tarpaulin.',
       contactName: 'Esi Owusu',
@@ -553,7 +553,9 @@ export function buildSeed() {
       notes: '',
       filledBy: 'Kwame Boateng',
       filledById: 'mem-9',
-      filledAt: at(-4, 12, 30)
+      filledAt: at(-4, 12, 30),
+      deliveredAt: at(-3, 16, 45),
+      deliveryConfirmedAt: ''
     },
     {
       id: 'load-1040',
@@ -575,9 +577,11 @@ export function buildSeed() {
       contactPhone: '+233 27 902 1177',
       contactEmail: 'adwoa@mercado.gh',
       notes: '',
-      filledBy: 'Mary Adjei',
-      filledById: 'mem-2',
-      filledAt: at(-6, 9, 0)
+      filledBy: 'Kofi Mensah',
+      filledById: 'mem-1',
+      filledAt: at(-6, 9, 0),
+      deliveredAt: '',
+      deliveryConfirmedAt: ''
     },
     {
       id: 'load-1038',
@@ -602,6 +606,161 @@ export function buildSeed() {
       filledBy: '',
       filledById: '',
       filledAt: ''
+    }
+  ];
+
+  // Shipper contact details live in their own collection so the public load
+  // board can stay readable without exposing phone numbers or email addresses.
+  const loadContacts = loads.map((entry) => ({
+    id: entry.id,
+    loadId: entry.id,
+    contactName: entry.contactName || '',
+    contactPhone: entry.contactPhone || '',
+    contactEmail: entry.contactEmail || ''
+  }));
+  loads.forEach((entry) => {
+    delete entry.contactName;
+    delete entry.contactPhone;
+    delete entry.contactEmail;
+    entry.deliveredAt = entry.deliveredAt || '';
+    entry.deliveryConfirmedAt = entry.deliveryConfirmedAt || '';
+  });
+
+  const deliveries = [
+    {
+      id: 'load-1039',
+      loadId: 'load-1039',
+      loadReference: `LD-${year}-1039`,
+      memberId: 'mem-9',
+      memberName: 'Kwame Boateng',
+      deliveredAt: at(-3, 16, 45),
+      note: 'Offloaded at the Techiman yard. Weighbridge ticket and signed waybill handed to the site clerk.',
+      photo: '',
+      status: 'submitted',
+      confirmedAt: '',
+      confirmedBy: '',
+      confirmationSource: '',
+      shipperNote: '',
+      shipperContact: '',
+      shipperConfirmedAt: ''
+    }
+  ];
+
+  const deliveryConfirmations = [
+    {
+      id: 'dc-1',
+      loadId: 'load-1039',
+      loadReference: `LD-${year}-1039`,
+      outcome: 'delivered',
+      note: 'Cement arrived complete. Two bags were torn but the count was correct.',
+      contactEmail: 'esi@buildright.gh',
+      status: 'pending',
+      createdAt: at(-2, 9, 15),
+      reviewedAt: '',
+      reviewedBy: ''
+    }
+  ];
+
+  const loadRequests = [
+    {
+      id: 'req-1',
+      reference: `LR-${year}-0001`,
+      title: 'Bagged cement to Sunyani',
+      shipper: 'Ashanti Build Supplies',
+      contactName: 'Kwabena Osei',
+      contactPhone: '+233 24 555 0134',
+      contactEmail: 'dispatch@ashantibuild.gh',
+      origin: 'Tema',
+      destination: 'Sunyani',
+      vehicleType: 'Tipper',
+      weightTons: 24,
+      rate: 8200,
+      pickupDate: dateOnly(3),
+      deliveryDate: dateOnly(4),
+      requirements: 'Tipper with a working tarpaulin. Loading starts at 07:00.',
+      status: 'pending',
+      source: 'public',
+      createdAt: at(-1, 10, 20),
+      reviewedAt: '',
+      reviewedBy: '',
+      rejectionReason: '',
+      loadId: '',
+      loadReference: ''
+    },
+    {
+      id: 'req-2',
+      reference: `LR-${year}-0002`,
+      title: 'Frozen chicken to Kumasi',
+      shipper: 'FreshMart Distribution',
+      contactName: 'Nana Ama Boateng',
+      contactPhone: '+233 24 660 4421',
+      contactEmail: 'nanaama@freshmart.gh',
+      origin: 'Tema',
+      destination: 'Kumasi',
+      vehicleType: 'Reefer',
+      weightTons: 12,
+      rate: 7100,
+      pickupDate: dateOnly(2),
+      deliveryDate: dateOnly(3),
+      requirements: 'Reefer at -18°C. Temperature recorder required for the full trip.',
+      status: 'pending',
+      source: 'public',
+      createdAt: at(0, 7, 45),
+      reviewedAt: '',
+      reviewedBy: '',
+      rejectionReason: '',
+      loadId: '',
+      loadReference: ''
+    },
+    {
+      id: 'req-3',
+      reference: `LR-${year}-0003`,
+      title: 'Textile rolls to Koforidua',
+      shipper: 'Sunline Textiles',
+      contactName: 'Akosua Frimpong',
+      contactPhone: '+233 26 330 8844',
+      contactEmail: 'akosua@sunline.gh',
+      origin: 'Accra',
+      destination: 'Koforidua',
+      vehicleType: 'Curtain-side',
+      weightTons: 5,
+      rate: 2400,
+      pickupDate: dateOnly(2),
+      deliveryDate: dateOnly(2),
+      requirements: 'Clean, dry trailer. No backloads with liquids.',
+      status: 'approved',
+      source: 'public',
+      createdAt: at(-4, 9, 10),
+      reviewedAt: at(-3, 11, 30),
+      reviewedBy: 'Ama Mensah',
+      rejectionReason: '',
+      loadId: 'load-1048',
+      loadReference: `LD-${year}-1048`
+    },
+    {
+      id: 'req-4',
+      reference: `LR-${year}-0004`,
+      title: 'Urgent cash job — pay upfront',
+      shipper: 'QuickHaul Brokers',
+      contactName: 'Unknown',
+      contactPhone: '+233 20 000 0000',
+      contactEmail: 'quickhaul@example.com',
+      origin: 'Accra',
+      destination: 'Lagos',
+      vehicleType: 'Dry van',
+      weightTons: 30,
+      rate: 99000,
+      pickupDate: dateOnly(-2),
+      deliveryDate: dateOnly(-1),
+      requirements: 'Pay a registration fee before the address is shared.',
+      status: 'rejected',
+      source: 'public',
+      createdAt: at(-6, 18, 5),
+      reviewedAt: at(-5, 8, 40),
+      reviewedBy: 'Ama Mensah',
+      rejectionReason: 'Unverified broker, cross-border route and an upfront fee request.',
+      loadId: '',
+      loadReference: ''
     }
   ];
 
@@ -934,9 +1093,13 @@ export function buildSeed() {
   ];
 
   return {
-    version: 3,
+    version: 5,
     members,
     loads,
+    loadContacts,
+    deliveries,
+    deliveryConfirmations,
+    loadRequests,
     dues,
     news,
     events,
@@ -958,6 +1121,7 @@ export function buildSeed() {
     counters: {
       member: 15,
       load: 1049,
+      loadRequest: 5,
       dues: duesCounter,
       news: 6,
       event: 7
