@@ -35,6 +35,7 @@ import PortalOverview from './pages/portal/Overview.jsx';
 import PortalProfile from './pages/portal/Profile.jsx';
 import PortalDues from './pages/portal/Dues.jsx';
 import PortalAlerts from './pages/portal/Alerts.jsx';
+import PortalSettings from './pages/portal/Settings.jsx';
 
 import Dashboard from './pages/admin/Dashboard.jsx';
 import Members from './pages/admin/Members.jsx';
@@ -81,6 +82,7 @@ export default function App() {
               <Route path="profile" element={<PortalProfile />} />
               <Route path="dues" element={<PortalDues />} />
               <Route path="alerts" element={<PortalAlerts />} />
+              <Route path="settings" element={<PortalSettings />} />
               <Route path="*" element={<Navigate to="/portal" replace />} />
             </Route>
 

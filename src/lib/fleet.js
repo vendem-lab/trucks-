@@ -43,7 +43,7 @@ export function publicFleetFields(member, existing = null) {
 
 export function buildDemoFleet(members = []) {
   return members
-    .filter((member) => member.status === 'active')
+    .filter((member) => member.status === 'active' && member.publicProfile !== false)
     .map((member) => ({ id: member.id, ...publicFleetFields(member) }));
 }
 

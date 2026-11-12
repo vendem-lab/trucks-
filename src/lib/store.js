@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { buildSeed } from './seed.js';
-import { buildDemoFleet, demoFleetEntry, publicFleetFields } from './fleet.js';
+import { buildDemoFleet, demoFleetEntry, isDemoIllustration, publicFleetFields } from './fleet.js';
 import { buildLoadFromRequest, contactFromLoadRequest, validateLoadRequest } from './loadRequests.js';
 import { buildDeliveryRecord, normalizeEmail } from './deliveries.js';
 import {
@@ -310,9 +310,17 @@ function today() {
    Members
 ------------------------------------------------------------------ */
 
+function uploadedFleetPhoto(record) {
+  return record?.photo && !isDemoIllustration(record.photo) ? record.photo : '';
+}
+
 function syncDemoFleet(draft, member) {
   if (!Array.isArray(draft.fleet)) draft.fleet = [];
   const index = draft.fleet.findIndex((entry) => entry.memberId === member.id);
+  if (member.publicProfile === false) {
+    if (index >= 0) draft.fleet.splice(index, 1);
+    return;
+  }
   if (member.status !== 'active') {
     if (index >= 0) {
       draft.fleet[index] = {
@@ -323,7 +331,12 @@ function syncDemoFleet(draft, member) {
     }
     return;
   }
-  const record = demoFleetEntry(member, index >= 0 ? draft.fleet[index] : null);
+  const existing = index >= 0
+    ? draft.fleet[index]
+    : member.fleetPhoto
+      ? { photo: member.fleetPhoto }
+      : null;
+  const record = demoFleetEntry(member, existing);
   if (index >= 0) draft.fleet[index] = record;
   else draft.fleet.unshift(record);
 }
@@ -333,7 +346,7 @@ function publicFleetForState(current) {
     (current.fleet || []).map((vehicle) => [vehicle.memberId || vehicle.id, vehicle])
   );
   return (current.members || [])
-    .filter((member) => member.status === 'active')
+    .filter((member) => member.status === 'active' && member.publicProfile !== false)
     .map((member) => ({
       id: member.id,
       ...publicFleetFields(member, published.get(member.id))
@@ -347,7 +360,7 @@ function syncPublicFleetRecords(members, fleet) {
   let changes = 0;
 
   (members || []).forEach((member) => {
-    if (member.status !== 'active') return;
+    if (member.status !== 'active' || member.publicProfile === false) return;
     activeIds.add(member.id);
     const previous = current.get(member.id);
     const next = publicFleetFields(member, previous);
@@ -360,7 +373,11 @@ function syncPublicFleetRecords(members, fleet) {
 
   (fleet || []).forEach((vehicle) => {
     const memberId = vehicle.memberId || vehicle.id;
-    if (vehicle.active !== false && !activeIds.has(memberId)) {
+    const member = (members || []).find((entry) => entry.id === memberId);
+    if (member?.publicProfile === false) {
+      batch.delete(doc(firebaseDb, 'fleet', memberId));
+      changes += 1;
+    } else if (vehicle.active !== false && !activeIds.has(memberId)) {
       batch.set(doc(firebaseDb, 'fleet', memberId), { active: false, updatedAt: new Date().toISOString() }, { merge: true });
       changes += 1;
     }
@@ -444,8 +461,9 @@ export function updateMember(id, patch) {
     const currentMember = getRecord('members', id);
     const member = { ...currentMember, ...clean, updatedAt, id };
     const fleetRecord = getRecord('fleet', id);
-    const nextFleet = fleetRecord && member.status === 'active'
-      ? { id, ...publicFleetFields(member, fleetRecord), updatedAt }
+    const existingFleet = fleetRecord || (member.fleetPhoto ? { photo: member.fleetPhoto } : null);
+    const nextFleet = member.status === 'active' && member.publicProfile !== false
+      ? { id, ...publicFleetFields(member, existingFleet), updatedAt }
       : null;
     const batch = writeBatch(firebaseDb);
     batch.set(doc(firebaseDb, 'members', id), { ...clean, updatedAt }, { merge: true });
@@ -455,14 +473,18 @@ export function updateMember(id, patch) {
     if (nextFleet) {
       const { id: _fleetId, ...fleetData } = nextFleet;
       batch.set(doc(firebaseDb, 'fleet', id), fleetData, { merge: true });
+    } else if (fleetRecord && member.publicProfile === false) {
+      batch.delete(doc(firebaseDb, 'fleet', id));
     }
     return batch.commit().then(() => {
       state = {
         ...state,
         members: state.members.map((entry) => entry.id === id ? member : entry),
         fleet: nextFleet
-          ? state.fleet.map((entry) => entry.id === id ? nextFleet : entry)
-          : state.fleet
+          ? [nextFleet, ...state.fleet.filter((entry) => entry.id !== id)]
+          : member.publicProfile === false
+            ? state.fleet.filter((entry) => entry.id !== id && entry.memberId !== id)
+            : state.fleet
       };
       listeners.forEach((listener) => listener());
       return member;
@@ -495,10 +517,13 @@ export function setMemberStatus(id, status) {
       status,
       ...(status === 'active' ? { approvedAt: fleetUpdatedAt } : {})
     };
-    const nextFleet = status === 'active'
-      ? { id, ...publicFleetFields(updatedMember, fleetRecord), updatedAt: fleetUpdatedAt }
+    const existingFleet = fleetRecord || (updatedMember.fleetPhoto ? { photo: updatedMember.fleetPhoto } : null);
+    const nextFleet = status === 'active' && updatedMember.publicProfile !== false
+      ? { id, ...publicFleetFields(updatedMember, existingFleet), updatedAt: fleetUpdatedAt }
       : fleetRecord
-        ? { ...fleetRecord, active: false, updatedAt: fleetUpdatedAt }
+        ? updatedMember.publicProfile === false
+          ? null
+          : { ...fleetRecord, active: false, updatedAt: fleetUpdatedAt }
         : null;
     const batch = writeBatch(firebaseDb);
     batch.set(
@@ -510,6 +535,8 @@ export function setMemberStatus(id, status) {
     if (nextFleet) {
       const { id: _fleetId, ...fleetData } = nextFleet;
       batch.set(doc(firebaseDb, 'fleet', id), fleetData, { merge: true });
+    } else if (fleetRecord && updatedMember.publicProfile === false) {
+      batch.delete(doc(firebaseDb, 'fleet', id));
     }
     return batch.commit().then(() => {
       state = {
@@ -517,7 +544,9 @@ export function setMemberStatus(id, status) {
         members: state.members.map((entry) => entry.id === id ? updatedMember : entry),
         fleet: nextFleet
           ? [nextFleet, ...state.fleet.filter((entry) => entry.id !== id)]
-          : state.fleet
+          : updatedMember.publicProfile === false
+            ? state.fleet.filter((entry) => entry.id !== id && entry.memberId !== id)
+            : state.fleet
       };
       listeners.forEach((listener) => listener());
       return updatedMember;
@@ -535,6 +564,73 @@ export function setMemberStatus(id, status) {
 
 export function approveMember(id) {
   return setMemberStatus(id, 'active');
+}
+
+export function updateMemberPublicProfile(id, visible) {
+  if (typeof visible !== 'boolean') {
+    return Promise.reject(new Error('Choose whether your public listing should be visible.'));
+  }
+  if (!DEMO_MODE) {
+    const uid = firebaseAuth.currentUser?.uid;
+    if (!uid) return Promise.reject(new Error('Sign in again to update your settings.'));
+    if (id !== uid) return Promise.reject(new Error('You can only update your own settings.'));
+    const currentMember = getRecord('members', id);
+    if (!currentMember) return Promise.reject(new Error('Your member record could not be found.'));
+
+    const updatedAt = new Date().toISOString();
+    const fleetRecord = getRecord('fleet', id);
+    const keepPhoto = uploadedFleetPhoto(fleetRecord);
+    const memberPatch = {
+      publicProfile: visible,
+      updatedAt,
+      // Keep an uploaded photo on the private member record so hiding the
+      // public listing does not destroy it.
+      ...(!visible && keepPhoto ? { fleetPhoto: keepPhoto } : {})
+    };
+    const updatedMember = { ...currentMember, ...memberPatch };
+    const batch = writeBatch(firebaseDb);
+    batch.set(doc(firebaseDb, 'members', id), memberPatch, { merge: true });
+
+    let nextFleet = null;
+    if (visible && updatedMember.status === 'active') {
+      const existingFleet = fleetRecord
+        || (currentMember.fleetPhoto ? { photo: currentMember.fleetPhoto } : null);
+      nextFleet = {
+        id,
+        ...publicFleetFields(updatedMember, existingFleet),
+        updatedAt
+      };
+      const { id: _fleetId, ...fleetData } = nextFleet;
+      batch.set(doc(firebaseDb, 'fleet', id), fleetData, { merge: true });
+    } else if (fleetRecord) {
+      batch.delete(doc(firebaseDb, 'fleet', id));
+    }
+
+    return batch.commit().then(() => {
+      state = {
+        ...state,
+        members: state.members.map((entry) => entry.id === id ? updatedMember : entry),
+        fleet: nextFleet
+          ? [nextFleet, ...state.fleet.filter((entry) => entry.id !== id)]
+          : state.fleet.filter((entry) => entry.id !== id && entry.memberId !== id)
+      };
+      listeners.forEach((listener) => listener());
+      return updatedMember;
+    });
+  }
+
+  return commit((draft) => {
+    const member = draft.members.find((entry) => entry.id === id);
+    if (!member) throw new Error('Your member record could not be found.');
+    if (!visible) {
+      const index = (draft.fleet || []).findIndex((entry) => entry.memberId === id);
+      const keepPhoto = uploadedFleetPhoto(index >= 0 ? draft.fleet[index] : null);
+      if (keepPhoto) member.fleetPhoto = keepPhoto;
+    }
+    member.publicProfile = visible;
+    syncDemoFleet(draft, member);
+    return member;
+  });
 }
 
 export function deleteMember(id) {
@@ -598,6 +694,9 @@ export function saveFleetPhoto(memberId, photo) {
     if (member.status !== 'active') {
       return Promise.reject(new Error('Your membership must be active before you can publish a photo.'));
     }
+    if (member.publicProfile === false) {
+      return Promise.reject(new Error('Turn on your public directory listing before publishing a photo.'));
+    }
     const existing = getRecord('fleet', memberId);
     const record = {
       id: memberId,
@@ -607,10 +706,20 @@ export function saveFleetPhoto(memberId, photo) {
       updatedAt: new Date().toISOString()
     };
     const { id: _id, ...data } = record;
-    return setDoc(doc(firebaseDb, 'fleet', memberId), data)
+    const batch = writeBatch(firebaseDb);
+    batch.set(doc(firebaseDb, 'fleet', memberId), data);
+    batch.set(
+      doc(firebaseDb, 'members', memberId),
+      { fleetPhoto: value, updatedAt: record.updatedAt },
+      { merge: true }
+    );
+    return batch.commit()
       .then(() => {
         state = {
           ...state,
+          members: state.members.map((entry) =>
+            entry.id === memberId ? { ...entry, fleetPhoto: value } : entry
+          ),
           fleet: [record, ...state.fleet.filter((entry) => entry.id !== memberId)]
         };
         listeners.forEach((listener) => listener());
@@ -628,10 +737,14 @@ export function saveFleetPhoto(memberId, photo) {
     if (member.status !== 'active') {
       throw new Error('Your membership must be active before you can publish a photo.');
     }
+    if (member.publicProfile === false) {
+      throw new Error('Turn on your public directory listing before publishing a photo.');
+    }
     if (!Array.isArray(draft.fleet)) draft.fleet = [];
     const existing = draft.fleet.find((entry) => entry.memberId === memberId) || null;
     const record = { ...demoFleetEntry(member, existing), photo: value };
     draft.fleet = [record, ...draft.fleet.filter((entry) => entry.memberId !== memberId)];
+    member.fleetPhoto = value;
     return record;
   });
 }
@@ -641,17 +754,41 @@ export function removeFleetPhoto(memberId) {
     if (!firebaseAuth.currentUser?.uid) {
       return Promise.reject(new Error('Sign in again to remove your vehicle photo.'));
     }
-    return deleteDoc(doc(firebaseDb, 'fleet', memberId)).then(() => {
+    const member = getRecord('members', memberId);
+    const updatedAt = new Date().toISOString();
+    const batch = writeBatch(firebaseDb);
+    batch.set(doc(firebaseDb, 'members', memberId), { fleetPhoto: '', updatedAt }, { merge: true });
+    let nextFleet = null;
+    if (member && member.status === 'active' && member.publicProfile !== false) {
+      nextFleet = { id: memberId, ...publicFleetFields(member), updatedAt };
+      const { id: _id, ...data } = nextFleet;
+      batch.set(doc(firebaseDb, 'fleet', memberId), data);
+    } else {
+      batch.delete(doc(firebaseDb, 'fleet', memberId));
+    }
+    return batch.commit().then(() => {
       state = {
         ...state,
-        fleet: state.fleet.filter((entry) => entry.id !== memberId && entry.memberId !== memberId)
+        members: state.members.map((entry) =>
+          entry.id === memberId ? { ...entry, fleetPhoto: '' } : entry
+        ),
+        fleet: nextFleet
+          ? [nextFleet, ...state.fleet.filter((entry) => entry.id !== memberId)]
+          : state.fleet.filter((entry) => entry.id !== memberId && entry.memberId !== memberId)
       };
       listeners.forEach((listener) => listener());
       return true;
     });
   }
   return commit((draft) => {
-    draft.fleet = (draft.fleet || []).filter((entry) => entry.memberId !== memberId);
+    const member = draft.members.find((entry) => entry.id === memberId);
+    if (member) member.fleetPhoto = '';
+    if (member && member.status === 'active' && member.publicProfile !== false) {
+      const record = demoFleetEntry(member);
+      draft.fleet = [record, ...draft.fleet.filter((entry) => entry.memberId !== memberId)];
+    } else {
+      draft.fleet = (draft.fleet || []).filter((entry) => entry.memberId !== memberId);
+    }
     return true;
   });
 }

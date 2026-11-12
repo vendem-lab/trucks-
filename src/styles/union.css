@@ -2271,6 +2271,52 @@
   align-items: start;
 }
 
+.portal-settings {
+  max-width: 860px;
+}
+
+.portal-settings .page-intro {
+  margin-bottom: 2px;
+}
+
+.portal-settings .page-intro h2 {
+  margin: 4px 0;
+  font-size: 1.65rem;
+}
+
+.portal-settings .page-intro p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.portal-settings-card {
+  padding: 26px;
+}
+
+.portal-setting-switch {
+  padding: 8px 0 22px;
+}
+
+.portal-setting-note {
+  margin-bottom: 18px;
+}
+
+.portal-settings-help {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.portal-settings-help h3 {
+  margin: 0 0 6px;
+}
+
+.portal-settings-help p {
+  margin: 0 0 14px;
+  color: var(--muted);
+  font-size: 0.84rem;
+}
+
 .profile-card {
   padding: 28px;
 }

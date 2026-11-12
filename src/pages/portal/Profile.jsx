@@ -48,14 +48,16 @@ export default function Profile() {
   useEffect(() => {
     if (photoTouched) return;
     const published = (state.fleet || []).find((entry) => entry.memberId === member?.id);
-    setPhoto(published?.photo || '');
-    setSavedPhoto(published?.photo || '');
-  }, [state.fleet, member?.id, photoTouched]);
+    const publishedPhoto = published?.photo || member?.fleetPhoto || '';
+    setPhoto(publishedPhoto);
+    setSavedPhoto(publishedPhoto);
+  }, [state.fleet, member?.id, member?.fleetPhoto, photoTouched]);
 
   if (!member) return null;
 
   const tier = TIER_BY_ID[member.tier] || TIER_BY_ID.independent;
   const canPublishPhoto = member.status === 'active';
+  const listingHidden = member.publicProfile === false;
 
   const update = (key) => (event) => {
     setForm((current) => ({ ...current, [key]: event.target.value }));
@@ -228,8 +230,8 @@ export default function Profile() {
               <h3>Public vehicle photo</h3>
               <p>
                 Your vehicle type, name, city and region are listed publicly while your membership
-                is active. Add a photo to replace the illustration. Your registration, phone,
-                licence and emergency contacts are never shown.
+                is active and your directory listing is on. Add a photo to replace the illustration.
+                Your registration, phone, licence and emergency contacts are never shown.
               </p>
               <input
                 ref={photoInput}
@@ -243,7 +245,7 @@ export default function Profile() {
                   type="button"
                   className="btn btn-outline btn-sm"
                   onClick={() => photoInput.current?.click()}
-                  disabled={photoBusy || !canPublishPhoto}
+                  disabled={photoBusy || !canPublishPhoto || listingHidden}
                 >
                   <Icon name="camera" size={15} /> {photo ? 'Replace photo' : 'Add photo'}
                 </button>
@@ -252,7 +254,7 @@ export default function Profile() {
                     type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={clearPhoto}
-                    disabled={photoBusy}
+                    disabled={photoBusy || listingHidden}
                   >
                     Remove
                   </button>
@@ -263,6 +265,12 @@ export default function Profile() {
               {!canPublishPhoto && (
                 <span className="field-hint">
                   You can publish a photo once your membership is active.
+                </span>
+              )}
+              {canPublishPhoto && listingHidden && (
+                <span className="field-hint">
+                  Your directory listing is hidden.{' '}
+                  <Link to="/portal/settings">Turn it on in Settings</Link> to publish a photo.
                 </span>
               )}
             </div>

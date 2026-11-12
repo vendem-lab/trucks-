@@ -11,7 +11,8 @@ const TABS = [
   { to: '/portal', label: 'Overview', icon: 'dashboard', end: true },
   { to: '/portal/profile', label: 'My profile', icon: 'user' },
   { to: '/portal/dues', label: 'Dues & payments', icon: 'wallet' },
-  { to: '/portal/alerts', label: 'Job alerts', icon: 'bell' }
+  { to: '/portal/alerts', label: 'Job alerts', icon: 'bell' },
+  { to: '/portal/settings', label: 'Settings', icon: 'settings' }
 ];
 
 export default function MemberLayout() {

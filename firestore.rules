@@ -154,8 +154,11 @@ service cloud.firestore {
         || (isSelf(uid)
           && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
             'name', 'phone', 'region', 'city', 'vehicleType', 'vehiclePlate',
-            'licenseNumber', 'emergencyName', 'emergencyPhone', 'notes', 'updatedAt'
-          ]));
+            'licenseNumber', 'emergencyName', 'emergencyPhone', 'notes',
+            'publicProfile', 'fleetPhoto', 'updatedAt'
+          ])
+          && request.resource.data.get('fleetPhoto', '') is string
+          && request.resource.data.get('fleetPhoto', '').size() <= 900000);
       allow delete: if isStaff();
     }
     match /fleet/{memberId} {
