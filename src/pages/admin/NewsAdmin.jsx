@@ -3,6 +3,7 @@ import Modal from '../../components/Modal.jsx';
 import Field from '../../components/Field.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
+import AdminToolbar from '../../components/AdminToolbar.jsx';
 import { NEWS_CATEGORIES } from '../../config.js';
 import { addNews, deleteNews, updateNews, useStore } from '../../lib/store.js';
 import { formatDate, toInputDate } from '../../lib/format.js';
@@ -137,36 +138,31 @@ export default function NewsAdmin() {
 
   return (
     <div className="admin-page">
-      <div className="admin-toolbar">
-        <div className="admin-toolbar-filters">
-          <div className="search-input">
-            <Icon name="search" size={16} />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search articles…"
-              aria-label="Search news"
-            />
-          </div>
-          <select
-            value={categoryFilter}
-            onChange={(event) => setCategoryFilter(event.target.value)}
-            aria-label="Filter by category"
-          >
-            <option value="all">All categories</option>
-            {NEWS_CATEGORIES.map((category) => (
-              <option key={category.id} value={category.id}>{category.label}</option>
-            ))}
-          </select>
-        </div>
-        <button type="button" className="btn btn-primary" onClick={openCreate}>
-          <Icon name="plus" size={16} /> New article
-        </button>
-      </div>
-
-      <div className="admin-count">
-        <span>{filtered.length} of {state.news.length} articles</span>
-      </div>
+      <AdminToolbar
+        searchValue={search}
+        onSearchChange={(event) => setSearch(event.target.value)}
+        searchPlaceholder="Search articles…"
+        searchLabel="Search news"
+        total={state.news.length}
+        count={filtered.length}
+        countSuffix="articles"
+        actions={(
+          <button type="button" className="btn btn-primary" onClick={openCreate}>
+            <Icon name="plus" size={16} /> New article
+          </button>
+        )}
+      >
+        <select
+          value={categoryFilter}
+          onChange={(event) => setCategoryFilter(event.target.value)}
+          aria-label="Filter by category"
+        >
+          <option value="all">All categories</option>
+          {NEWS_CATEGORIES.map((category) => (
+            <option key={category.id} value={category.id}>{category.label}</option>
+          ))}
+        </select>
+      </AdminToolbar>
 
       <div className="card card-flush">
         {filtered.length ? (

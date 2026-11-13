@@ -5,6 +5,7 @@ import Field from '../../components/Field.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
+import AdminToolbar from '../../components/AdminToolbar.jsx';
 import { LOAD_REQUEST_STATUSES, VEHICLE_TYPES } from '../../config.js';
 import {
   approveLoadRequest,
@@ -173,36 +174,35 @@ export default function LoadRequests() {
 
   return (
     <div className="admin-page">
-      <div className="admin-toolbar">
-        <div className="admin-toolbar-filters">
-          <div className="search-input">
-            <Icon name="search" size={16} />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search reference, shipper or route…"
-              aria-label="Search load requests"
-            />
-          </div>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            aria-label="Filter by request status"
-          >
-            <option value="all">All requests</option>
-            {LOAD_REQUEST_STATUSES.map((status) => (
-              <option key={status.id} value={status.id}>{status.label}</option>
-            ))}
-          </select>
-        </div>
-        <Link to="/admin/loads" className="btn btn-outline">
-          <Icon name="clipboard" size={16} /> Load board
-        </Link>
-      </div>
+      <AdminToolbar
+        searchValue={search}
+        onSearchChange={(event) => setSearch(event.target.value)}
+        searchPlaceholder="Search reference, shipper or route…"
+        searchLabel="Search load requests"
+        count={filtered.length}
+        countSuffix="requests"
+        total={requests.length}
+        actions={(
+          <Link to="/admin/loads" className="btn btn-outline">
+            <Icon name="clipboard" size={16} /> Load board
+          </Link>
+        )}
+      >
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          aria-label="Filter by request status"
+        >
+          <option value="all">All requests</option>
+          {LOAD_REQUEST_STATUSES.map((status) => (
+            <option key={status.id} value={status.id}>{status.label}</option>
+          ))}
+        </select>
+      </AdminToolbar>
 
       <div className="admin-count">
         <span>
-          {filtered.length} of {requests.length} requests · {pendingCount} waiting for review
+          {pendingCount} waiting for review
         </span>
       </div>
 

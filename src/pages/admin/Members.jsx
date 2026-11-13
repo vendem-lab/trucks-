@@ -5,6 +5,7 @@ import Field from '../../components/Field.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
+import AdminToolbar from '../../components/AdminToolbar.jsx';
 import {
   MEMBER_STATUSES,
   REGIONS,
@@ -193,44 +194,38 @@ export default function Members() {
 
   return (
     <div className="admin-page">
-      <div className="admin-toolbar">
-        <div className="admin-toolbar-filters">
-          <div className="search-input">
-            <Icon name="search" size={16} />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search name, number, email or region…"
-              aria-label="Search members"
-            />
-          </div>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            aria-label="Filter by status"
-          >
-            <option value="all">All statuses</option>
-            {MEMBER_STATUSES.map((status) => (
-              <option key={status.id} value={status.id}>{status.label}</option>
-            ))}
-          </select>
-          <select
-            value={tierFilter}
-            onChange={(event) => setTierFilter(event.target.value)}
-            aria-label="Filter by tier"
-          >
-            <option value="all">All tiers</option>
-            {TIERS.map((tier) => (
-              <option key={tier.id} value={tier.id}>{tier.name}</option>
-            ))}
-          </select>
-        </div>
-        {demo && (
+      <AdminToolbar
+        searchValue={search}
+        onSearchChange={(event) => setSearch(event.target.value)}
+        searchPlaceholder="Search name, number, email or region…"
+        searchLabel="Search members"
+        actions={demo && (
           <button type="button" className="btn btn-primary" onClick={openCreate}>
             <Icon name="plus" size={16} /> Add member
           </button>
         )}
-      </div>
+      >
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          aria-label="Filter by status"
+        >
+          <option value="all">All statuses</option>
+          {MEMBER_STATUSES.map((status) => (
+            <option key={status.id} value={status.id}>{status.label}</option>
+          ))}
+        </select>
+        <select
+          value={tierFilter}
+          onChange={(event) => setTierFilter(event.target.value)}
+          aria-label="Filter by tier"
+        >
+          <option value="all">All tiers</option>
+          {TIERS.map((tier) => (
+            <option key={tier.id} value={tier.id}>{tier.name}</option>
+          ))}
+        </select>
+      </AdminToolbar>
 
       {pendingApplications.length > 0 && <section className="card" aria-label="Pending membership applications">
         <div className="card-head"><div><h2>New applications</h2><p>{pendingApplications.length} awaiting staff review</p></div></div>

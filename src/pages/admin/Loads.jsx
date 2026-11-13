@@ -5,6 +5,7 @@ import Field from '../../components/Field.jsx';
 import StatusBadge from '../../components/StatusBadge.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
+import AdminToolbar from '../../components/AdminToolbar.jsx';
 import { LOAD_STATUSES, VEHICLE_TYPES } from '../../config.js';
 import {
   acceptDeliveryConfirmation,
@@ -268,52 +269,47 @@ export default function LoadsAdmin() {
 
   return (
     <div className="admin-page">
-      <div className="admin-toolbar">
-        <div className="admin-toolbar-filters">
-          <div className="search-input">
-            <Icon name="search" size={16} />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search reference, shipper or city…"
-              aria-label="Search loads"
-            />
-          </div>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            aria-label="Filter by status"
-          >
-            <option value="all">All statuses</option>
-            {LOAD_STATUSES.map((status) => (
-              <option key={status.id} value={status.id}>{status.label}</option>
-            ))}
-          </select>
-          <select
-            value={trailerFilter}
-            onChange={(event) => setTrailerFilter(event.target.value)}
-            aria-label="Filter by vehicle type"
-          >
-            <option value="all">All vehicle types</option>
-            {VEHICLE_TYPES.map((type) => (
-              <option key={type} value={type}>{type}</option>
-            ))}
-          </select>
-        </div>
-        <div className="admin-toolbar-actions">
-          <Link to="/admin/load-requests" className="btn btn-outline">
-            <Icon name="fileText" size={16} /> Requests
-            {pendingRequests > 0 && <span className="admin-toolbar-count">{pendingRequests}</span>}
-          </Link>
-          <button type="button" className="btn btn-primary" onClick={openCreate}>
-            <Icon name="plus" size={16} /> New load
-          </button>
-        </div>
-      </div>
-
-      <div className="admin-count">
-        <span>{filtered.length} of {state.loads.length} loads</span>
-      </div>
+      <AdminToolbar
+        searchValue={search}
+        onSearchChange={(event) => setSearch(event.target.value)}
+        searchPlaceholder="Search reference, shipper or city…"
+        searchLabel="Search loads"
+        count={filtered.length}
+        countSuffix="loads"
+        total={state.loads.length}
+        actions={(
+          <>
+            <Link to="/admin/load-requests" className="btn btn-outline">
+              <Icon name="fileText" size={16} /> Requests
+              {pendingRequests > 0 && <span className="admin-toolbar-count">{pendingRequests}</span>}
+            </Link>
+            <button type="button" className="btn btn-primary" onClick={openCreate}>
+              <Icon name="plus" size={16} /> New load
+            </button>
+          </>
+        )}
+      >
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          aria-label="Filter by status"
+        >
+          <option value="all">All statuses</option>
+          {LOAD_STATUSES.map((status) => (
+            <option key={status.id} value={status.id}>{status.label}</option>
+          ))}
+        </select>
+        <select
+          value={trailerFilter}
+          onChange={(event) => setTrailerFilter(event.target.value)}
+          aria-label="Filter by vehicle type"
+        >
+          <option value="all">All vehicle types</option>
+          {VEHICLE_TYPES.map((type) => (
+            <option key={type} value={type}>{type}</option>
+          ))}
+        </select>
+      </AdminToolbar>
 
       <div className="card card-flush">
         {filtered.length ? (

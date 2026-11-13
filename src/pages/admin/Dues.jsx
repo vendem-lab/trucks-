@@ -5,6 +5,7 @@ import StatusBadge from '../../components/StatusBadge.jsx';
 import StatCard from '../../components/StatCard.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
+import AdminToolbar from '../../components/AdminToolbar.jsx';
 import { DUES_STATUSES, PAYMENT_METHODS, TIER_BY_ID } from '../../config.js';
 import {
   addDues,
@@ -196,42 +197,38 @@ export default function DuesAdmin() {
         />
       </div>
 
-      <div className="admin-toolbar">
-        <div className="admin-toolbar-filters">
-          <div className="search-input">
-            <Icon name="search" size={16} />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search member, reference or period…"
-              aria-label="Search dues"
-            />
-          </div>
-          <select
-            value={statusFilter}
-            onChange={(event) => setStatusFilter(event.target.value)}
-            aria-label="Filter by status"
-          >
-            <option value="all">All statuses</option>
-            {DUES_STATUSES.map((status) => (
-              <option key={status.id} value={status.id}>{status.label}</option>
-            ))}
-          </select>
-          <select
-            value={periodFilter}
-            onChange={(event) => setPeriodFilter(event.target.value)}
-            aria-label="Filter by period"
-          >
-            <option value="all">All periods</option>
-            {periods.map((period) => (
-              <option key={period} value={period}>{formatPeriod(period)}</option>
-            ))}
-          </select>
-        </div>
-        <button type="button" className="btn btn-primary" onClick={openCreate}>
-          <Icon name="plus" size={16} /> New invoice
-        </button>
-      </div>
+      <AdminToolbar
+        searchValue={search}
+        onSearchChange={(event) => setSearch(event.target.value)}
+        searchPlaceholder="Search member, reference or period…"
+        searchLabel="Search dues"
+        actions={(
+          <button type="button" className="btn btn-primary" onClick={openCreate}>
+            <Icon name="plus" size={16} /> New invoice
+          </button>
+        )}
+      >
+        <select
+          value={statusFilter}
+          onChange={(event) => setStatusFilter(event.target.value)}
+          aria-label="Filter by status"
+        >
+          <option value="all">All statuses</option>
+          {DUES_STATUSES.map((status) => (
+            <option key={status.id} value={status.id}>{status.label}</option>
+          ))}
+        </select>
+        <select
+          value={periodFilter}
+          onChange={(event) => setPeriodFilter(event.target.value)}
+          aria-label="Filter by period"
+        >
+          <option value="all">All periods</option>
+          {periods.map((period) => (
+            <option key={period} value={period}>{formatPeriod(period)}</option>
+          ))}
+        </select>
+      </AdminToolbar>
 
       <div className="admin-count">
         <span>{filtered.length} of {state.dues.length} invoices</span>

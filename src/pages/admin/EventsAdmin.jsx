@@ -3,6 +3,7 @@ import Modal from '../../components/Modal.jsx';
 import Field from '../../components/Field.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
+import AdminToolbar from '../../components/AdminToolbar.jsx';
 import { EVENT_TYPES, REGIONS } from '../../config.js';
 import {
   addEvent,
@@ -203,36 +204,31 @@ export default function EventsAdmin() {
 
   return (
     <div className="admin-page">
-      <div className="admin-toolbar">
-        <div className="admin-toolbar-filters">
-          <div className="search-input">
-            <Icon name="search" size={16} />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="Search events, venues or trainers…"
-              aria-label="Search events"
-            />
-          </div>
-          <select
-            value={typeFilter}
-            onChange={(event) => setTypeFilter(event.target.value)}
-            aria-label="Filter by event type"
-          >
-            <option value="all">All types</option>
-            {EVENT_TYPES.map((type) => (
-              <option key={type.id} value={type.id}>{type.label}</option>
-            ))}
-          </select>
-        </div>
-        <button type="button" className="btn btn-primary" onClick={openCreate}>
-          <Icon name="plus" size={16} /> New event
-        </button>
-      </div>
-
-      <div className="admin-count">
-        <span>{filtered.length} of {state.events.length} events · {upcomingCount} upcoming</span>
-      </div>
+      <AdminToolbar
+        searchValue={search}
+        onSearchChange={(event) => setSearch(event.target.value)}
+        searchPlaceholder="Search events, venues or trainers…"
+        searchLabel="Search events"
+        count={filtered.length}
+        countSuffix={`events · ${upcomingCount} upcoming`}
+        total={state.events.length}
+        actions={(
+          <button type="button" className="btn btn-primary" onClick={openCreate}>
+            <Icon name="plus" size={16} /> New event
+          </button>
+        )}
+      >
+        <select
+          value={typeFilter}
+          onChange={(event) => setTypeFilter(event.target.value)}
+          aria-label="Filter by event type"
+        >
+          <option value="all">All types</option>
+          {EVENT_TYPES.map((type) => (
+            <option key={type.id} value={type.id}>{type.label}</option>
+          ))}
+        </select>
+      </AdminToolbar>
 
       <div className="card card-flush">
         {filtered.length ? (
