@@ -52,9 +52,28 @@ export function buildStatusMessage(status) {
 }
 
 export function renderTemplate(template, vars = {}) {
-  return String(template || '').replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, key) =>
-    Object.prototype.hasOwnProperty.call(vars, key) ? String(vars[key] ?? '') : match
+  const officePhone = String(vars.officePhone ?? '').trim();
+  const rendered = String(template || '').replace(
+    /\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g,
+    (match, key) => {
+      // An unset office phone must render empty so the clause below can be
+      // cleaned up instead of leaking a raw placeholder into a text message.
+      if (key === 'officePhone' && !officePhone) return '';
+      return Object.prototype.hasOwnProperty.call(vars, key) ? String(vars[key] ?? '') : match;
+    }
   );
+
+  // Without an office phone the "Call {{officePhone}}" clauses render as
+  // "Call ." or "Call  if this is unexpected." Point members at the office
+  // instead of leaving a broken sentence in a real text message.
+  if (officePhone) return rendered;
+
+  return rendered
+    .replace(/\s*Call\s+(if|for)\b/gi, ' Contact the union office $1')
+    .replace(/\s*Call\s*\./gi, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/\s+([.,!?])/g, '$1')
+    .trim();
 }
 
 export function normalizePhone(phone) {

@@ -50,6 +50,24 @@ describe('renderTemplate', () => {
   it('leaves unknown placeholders untouched', () => {
     expect(renderTemplate('Hi {{missing}}', vars)).toBe('Hi {{missing}}');
   });
+
+  it('keeps the call clause when an office phone is set', () => {
+    expect(
+      renderTemplate('Member no. HU-1. Call {{officePhone}} if this is unexpected.', {
+        officePhone: '030 000 0000'
+      })
+    ).toBe('Member no. HU-1. Call 030 000 0000 if this is unexpected.');
+  });
+
+  it('drops a dangling call clause when the office phone is missing', () => {
+    expect(
+      renderTemplate('Member no. HU-1. Call {{officePhone}} if this is unexpected.', {})
+    ).toBe('Member no. HU-1. Contact the union office if this is unexpected.');
+
+    expect(renderTemplate('Pay at the office. Call {{officePhone}}.', {})).toBe(
+      'Pay at the office.'
+    );
+  });
 });
 
 describe('smsSegments', () => {
