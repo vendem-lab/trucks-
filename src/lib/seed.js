@@ -1106,6 +1106,7 @@ export function buildSeed() {
     alerts,
     fleet,
     messages,
+    smsMessages: [],
     registrations,
     settings: {
       unionName: "Haulway Drivers' Union",
@@ -1116,7 +1117,8 @@ export function buildSeed() {
       hours: 'Mon–Fri · 08:00–17:00',
       notifyEnquiries: true,
       duesGraceDays: 14,
-      duesReminder: true
+      duesReminder: true,
+      smsStatusUpdates: true
     },
     counters: {
       member: 15,

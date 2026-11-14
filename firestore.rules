@@ -356,6 +356,12 @@ service cloud.firestore {
       allow read: if isStaff();
       allow write: if false;
     }
+    match /smsMessages/{id} {
+      // Staff read the SMS history; the serverless function writes each send
+      // while acting as the signed-in staff user.
+      allow read, create: if isStaff();
+      allow update, delete: if false;
+    }
     match /settings/{id} {
       allow read: if true;
       allow write: if isStaff();

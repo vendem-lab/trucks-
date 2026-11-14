@@ -6,6 +6,7 @@ import StatCard from '../../components/StatCard.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
 import AdminToolbar from '../../components/AdminToolbar.jsx';
+import SmsSendModal from '../../components/SmsSendModal.jsx';
 import { DUES_STATUSES, PAYMENT_METHODS, TIER_BY_ID } from '../../config.js';
 import {
   addDues,
@@ -16,7 +17,9 @@ import {
 } from '../../lib/store.js';
 import { currentPeriod, formatPeriod } from '../../lib/union.js';
 import { formatCurrency, formatDate } from '../../lib/format.js';
+import { SMS_TEMPLATES } from '../../lib/sms.js';
 import { useToast } from '../../context/ToastContext.jsx';
+import { useAuth } from '../../context/authContext.js';
 
 function endOfMonth(period) {
   const [year, month] = String(period || currentPeriod()).split('-').map(Number);
@@ -26,6 +29,7 @@ function endOfMonth(period) {
 export default function DuesAdmin() {
   const state = useStore();
   const { push } = useToast();
+  const { session } = useAuth();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [periodFilter, setPeriodFilter] = useState('all');
@@ -42,6 +46,11 @@ export default function DuesAdmin() {
   const [payTarget, setPayTarget] = useState(null);
   const [payMethod, setPayMethod] = useState('momo');
   const [deleteId, setDeleteId] = useState(null);
+  const [smsInvoiceId, setSmsInvoiceId] = useState(null);
+
+  const smsInvoice = smsInvoiceId
+    ? state.dues.find((invoice) => invoice.id === smsInvoiceId)
+    : null;
 
   const periods = useMemo(
     () => [...new Set(state.dues.map((invoice) => invoice.period))].sort().reverse(),
@@ -302,6 +311,13 @@ export default function DuesAdmin() {
                             >
                               Waive
                             </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-sm"
+                              onClick={() => setSmsInvoiceId(invoice.id)}
+                            >
+                              <Icon name="send" size={13} /> Remind
+                            </button>
                           </>
                         )}
                         <button
@@ -462,6 +478,21 @@ export default function DuesAdmin() {
           This removes the invoice from the member’s statement. This cannot be undone.
         </p>
       </Modal>
+
+      <SmsSendModal
+        open={Boolean(smsInvoice)}
+        onClose={() => setSmsInvoiceId(null)}
+        title="Send dues reminder"
+        subtitle={smsInvoice ? `${smsInvoice.memberName} · ${formatPeriod(smsInvoice.period)}` : ''}
+        kind="dues"
+        audience={
+          smsInvoice
+            ? { type: 'dues', ids: [smsInvoice.memberId] }
+            : { type: 'dues', ids: [] }
+        }
+        defaultMessage={SMS_TEMPLATES.dues.message}
+        sentBy={session?.name}
+      />
     </div>
   );
 }

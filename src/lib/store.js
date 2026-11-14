@@ -29,7 +29,8 @@ function loadState() {
     return {
       version: 5, members: [], loads: [], loadContacts: [], deliveries: [],
       deliveryConfirmations: [], loadRequests: [], dues: [], news: [], events: [],
-      alerts: [], messages: [], registrations: [], fleet: [], settings: {}, counters: {}, loading: true
+      alerts: [], messages: [], smsMessages: [], registrations: [], fleet: [], settings: {},
+      counters: {}, loading: true
     };
   }
   try {
@@ -103,7 +104,8 @@ function migrateToVersionFive(parsed) {
     loadRequests: Array.isArray(parsed.loadRequests) ? parsed.loadRequests : [],
     fleet: Array.isArray(parsed.fleet)
       ? parsed.fleet
-      : buildDemoFleet(Array.isArray(parsed.members) ? parsed.members : [])
+      : buildDemoFleet(Array.isArray(parsed.members) ? parsed.members : []),
+    smsMessages: Array.isArray(parsed.smsMessages) ? parsed.smsMessages : []
   };
 }
 
@@ -132,6 +134,7 @@ export function startLiveStore(session = null) {
     registrations: [],
     enquiries: [],
     messages: [],
+    smsMessages: [],
     applications: [],
     settings: {},
     loading: true,
@@ -155,6 +158,7 @@ export function startLiveStore(session = null) {
 
   if (isStaff) {
     subscriptions.push({ name: 'enquiries', source: collection(firebaseDb, 'enquiries'), stateKey: 'messages', isDoc: false });
+    subscriptions.push({ name: 'smsMessages', source: collection(firebaseDb, 'smsMessages'), stateKey: 'smsMessages', isDoc: false });
     subscriptions.push({ name: 'settings', source: doc(firebaseDb, 'settings', 'union'), stateKey: 'settings', isDoc: true });
   } else {
     state = { ...state, settings: { unionName: "Haulway Drivers' Union", duesGraceDays: 14 } };
@@ -2100,6 +2104,14 @@ export function updateSettings(patch) {
 
 export function isDemoMode() {
   return DEMO_MODE;
+}
+
+export function addSmsMessage(record) {
+  if (!DEMO_MODE) return Promise.resolve(record);
+  return commit((draft) => {
+    draft.smsMessages = [record, ...(draft.smsMessages || [])];
+    return record;
+  });
 }
 
 export function resetDemoData() {

@@ -36,6 +36,11 @@
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05);
   --shadow: 0 10px 30px rgba(16, 24, 40, 0.08);
   --shadow-lg: 0 30px 70px rgba(11, 18, 32, 0.18);
+  --ease-standard: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --ease-emphasized: cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-fast: 180ms;
+  --motion-standard: 240ms;
+  --motion-slow: 320ms;
   --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-display: 'Space Grotesk', 'Inter', sans-serif;
 }
@@ -170,8 +175,11 @@ legend {
   line-height: 1.2;
   white-space: nowrap;
   text-align: center;
-  transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease,
-    transform 0.16s ease, box-shadow 0.16s ease;
+  transition: background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-emphasized),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
 .btn:active {
@@ -275,7 +283,9 @@ legend {
   border-radius: 8px;
   background: var(--surface);
   color: var(--text-soft);
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
 }
 
 .icon-btn:hover {
@@ -481,7 +491,8 @@ textarea {
   background: var(--surface);
   font-size: 0.88rem;
   color: var(--text);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
 input::placeholder,
@@ -636,7 +647,9 @@ select {
   font-size: 0.79rem;
   font-weight: 500;
   color: var(--text-soft);
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
 }
 
 .chip:hover {
@@ -734,7 +747,7 @@ select {
 }
 
 .data-table tbody tr {
-  transition: background 0.12s ease;
+  transition: background var(--motion-fast) var(--ease-standard);
 }
 
 .data-table tbody tr:hover {
@@ -958,7 +971,7 @@ select {
   padding: 24px;
   background: rgba(8, 15, 28, 0.55);
   backdrop-filter: blur(4px);
-  animation: fadeIn 0.16s ease;
+  animation: fadeIn var(--motion-fast) var(--ease-standard) both;
 }
 
 .modal {
@@ -970,7 +983,7 @@ select {
   border-radius: var(--radius-lg);
   background: var(--surface);
   box-shadow: var(--shadow-lg);
-  animation: modalIn 0.18s ease;
+  animation: modalIn var(--motion-standard) var(--ease-emphasized) both;
 }
 
 .modal-lg {
@@ -1083,7 +1096,7 @@ select {
   border-radius: 10px;
   background: var(--surface);
   box-shadow: var(--shadow);
-  animation: toastIn 0.2s ease;
+  animation: toastIn var(--motion-standard) var(--ease-emphasized) both;
 }
 
 .toast-error {
@@ -1203,5 +1216,20 @@ select {
   .toast {
     min-width: 0;
     max-width: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }

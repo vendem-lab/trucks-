@@ -194,7 +194,7 @@
   min-height: 4px;
   border-radius: 7px;
   background: linear-gradient(180deg, #2dd4bf, #0f766e);
-  transition: height 0.3s ease;
+  transition: height var(--motion-slow) var(--ease-emphasized);
 }
 
 .bar-label {
@@ -236,7 +236,7 @@
   height: 100%;
   border-radius: 999px;
   background: #94a3b8;
-  transition: width 0.3s ease;
+  transition: width var(--motion-slow) var(--ease-emphasized);
 }
 
 .snapshot-booked { background: #3b82f6; }
@@ -404,7 +404,8 @@
   padding: 11px 12px;
   border: 1px solid var(--line);
   border-radius: 10px;
-  transition: border-color 0.15s ease, background 0.15s ease;
+  transition: border-color var(--motion-fast) var(--ease-standard),
+    background var(--motion-fast) var(--ease-standard);
 }
 
 .quick-action:hover {
@@ -613,7 +614,7 @@
   border-bottom: 1px solid #f0f3f7;
   background: var(--surface);
   text-align: left;
-  transition: background 0.15s ease;
+  transition: background var(--motion-fast) var(--ease-standard);
 }
 
 .inbox-item:last-child {
@@ -783,7 +784,7 @@
   margin-top: 2px;
   border-radius: 999px;
   background: #d0d5dd;
-  transition: background 0.18s ease;
+  transition: background var(--motion-standard) var(--ease-standard);
 }
 
 .switch-ui::after {
@@ -796,7 +797,7 @@
   border-radius: 50%;
   background: #fff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
-  transition: transform 0.18s ease;
+  transition: transform var(--motion-standard) var(--ease-emphasized);
 }
 
 .switch-field input:checked + .switch-ui {
@@ -1035,4 +1036,121 @@
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 10px;
+}
+
+/* SMS composer */
+
+.sms-member-picker {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin: 4px 0 18px;
+  background: var(--surface);
+}
+
+.sms-member-picker-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.sms-member-picker-head span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.sms-member-list {
+  display: grid;
+  gap: 4px;
+  max-height: 240px;
+  overflow-y: auto;
+  margin-top: 10px;
+}
+
+.sms-member-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.sms-member-option:hover {
+  background: var(--line-soft);
+}
+
+.sms-member-option input {
+  margin-top: 3px;
+}
+
+.sms-member-option > span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sms-member-option > span > span {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.sms-template-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 16px;
+}
+
+.sms-template-row > span {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sms-preview {
+  background: var(--line-soft);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin: 4px 0 18px;
+}
+
+.sms-preview-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 6px;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.sms-preview p {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--text-soft);
+  line-height: 1.5;
+}
+
+.sms-send-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+
+.sms-send-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sms-confirm .sms-preview {
+  margin-top: 14px;
 }

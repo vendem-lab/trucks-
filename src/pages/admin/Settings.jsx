@@ -30,7 +30,8 @@ export default function Settings() {
     hours: state.settings.hours || '',
     duesGraceDays: String(state.settings.duesGraceDays ?? 14),
     notifyEnquiries: Boolean(state.settings.notifyEnquiries),
-    duesReminder: Boolean(state.settings.duesReminder)
+    duesReminder: Boolean(state.settings.duesReminder),
+    smsStatusUpdates: state.settings.smsStatusUpdates !== false
   }));
   const [errors, setErrors] = useState({});
   const [saved, setSaved] = useState(false);
@@ -46,7 +47,8 @@ export default function Settings() {
       hours: state.settings.hours || '',
       duesGraceDays: String(state.settings.duesGraceDays ?? 14),
       notifyEnquiries: Boolean(state.settings.notifyEnquiries),
-      duesReminder: Boolean(state.settings.duesReminder)
+      duesReminder: Boolean(state.settings.duesReminder),
+      smsStatusUpdates: state.settings.smsStatusUpdates !== false
     });
   }, [state.settings]);
 
@@ -208,6 +210,21 @@ export default function Settings() {
               <span>
                 <strong>Dues reminders</strong>
                 <span>Send a reminder before the due date and again inside the grace period.</span>
+              </span>
+            </label>
+
+            <label className="switch-field">
+              <input
+                type="checkbox"
+                checked={form.smsStatusUpdates}
+                onChange={update('smsStatusUpdates')}
+              />
+              <span className="switch-ui" />
+              <span>
+                <strong>Membership status SMS</strong>
+                <span>
+                  Text the member when their membership is approved, suspended or reactivated.
+                </span>
               </span>
             </label>
 

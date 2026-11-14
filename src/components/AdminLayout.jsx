@@ -15,6 +15,7 @@ const NAV = [
   { to: '/admin/news', label: 'News', icon: 'megaphone' },
   { to: '/admin/events', label: 'Events', icon: 'calendar' },
   { to: '/admin/enquiries', label: 'Enquiries', icon: 'message' },
+  { to: '/admin/sms', label: 'SMS', icon: 'send' },
   { to: '/admin/settings', label: 'Settings', icon: 'settings' }
 ];
 
@@ -30,6 +31,7 @@ const TITLES = {
   '/admin/news': { title: 'News', subtitle: 'Announcements and updates published to the site.' },
   '/admin/events': { title: 'Events & training', subtitle: 'Meetings, courses and registrations.' },
   '/admin/enquiries': { title: 'Enquiries', subtitle: 'Messages from the public contact form.' },
+  '/admin/sms': { title: 'SMS', subtitle: 'Send Arkesel text messages to members and review delivery logs.' },
   '/admin/settings': { title: 'Settings', subtitle: 'Union details, dues rules and platform data.' }
 };
 

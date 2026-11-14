@@ -6,6 +6,7 @@ import StatusBadge from '../../components/StatusBadge.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
 import AdminToolbar from '../../components/AdminToolbar.jsx';
+import SmsSendModal from '../../components/SmsSendModal.jsx';
 import {
   MEMBER_STATUSES,
   REGIONS,
@@ -23,9 +24,11 @@ import {
   useStore
 } from '../../lib/store.js';
 import { approveApplication } from '../../lib/auth.js';
+import { SMS_TEMPLATES, notifyStatusChange } from '../../lib/sms.js';
 import { duesSummary, formatPeriod } from '../../lib/union.js';
 import { formatCurrency, formatDate, isValidEmail, isValidPhone } from '../../lib/format.js';
 import { useToast } from '../../context/ToastContext.jsx';
+import { useAuth } from '../../context/authContext.js';
 
 const EMPTY = {
   name: '',
@@ -67,6 +70,7 @@ export default function Members() {
   const state = useStore();
   const demo = isDemoMode();
   const { push } = useToast();
+  const { session } = useAuth();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [tierFilter, setTierFilter] = useState('all');
@@ -76,6 +80,7 @@ export default function Members() {
   const [formErrors, setFormErrors] = useState({});
   const [detailId, setDetailId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [smsMemberId, setSmsMemberId] = useState(null);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -92,6 +97,7 @@ export default function Members() {
 
   const detail = detailId ? state.members.find((member) => member.id === detailId) : null;
   const deleting = deleteId ? state.members.find((member) => member.id === deleteId) : null;
+  const smsMember = smsMemberId ? state.members.find((member) => member.id === smsMemberId) : null;
 
   const detailDues = detail
     ? state.dues.filter((invoice) => invoice.memberId === detail.id)
@@ -187,8 +193,35 @@ export default function Members() {
     try {
       await approveApplication(application.id);
       push(`Application for ${application.name} approved.`, 'success');
+      notifyStatusChange(
+        { id: application.uid, name: application.name, phone: application.phone },
+        'active',
+        session?.name
+      )
+        .then((result) => {
+          if (result) push(`Welcome SMS sent to ${application.name}.`, 'success');
+        })
+        .catch((smsError) =>
+          push(`Application approved, but the SMS failed: ${smsError.message}`, 'error')
+        );
     } catch (error) {
       push(error.message || 'Could not approve application.', 'error');
+    }
+  };
+
+  const changeStatus = async (member, status) => {
+    try {
+      await setMemberStatus(member.id, status);
+      push(`${member.name} is now ${status}.`, 'success');
+      notifyStatusChange({ ...member, status }, status, session?.name)
+        .then((result) => {
+          if (result) push(`Status SMS sent to ${member.name}.`, 'success');
+        })
+        .catch((smsError) =>
+          push(`Status updated, but the SMS failed: ${smsError.message}`, 'error')
+        );
+    } catch (error) {
+      push(error.message || 'Could not update member status.', 'error');
     }
   };
 
@@ -462,10 +495,7 @@ export default function Members() {
                 <button
                   type="button"
                   className="btn btn-primary btn-sm"
-                  onClick={() => {
-                    const result = setMemberStatus(detail.id, 'active');
-                    Promise.resolve(result).then(() => push(`${detail.name} is now active.`, 'success')).catch((error) => push(error.message || 'Could not update member status.', 'error'));
-                  }}
+                  onClick={() => changeStatus(detail, 'active')}
                 >
                   <Icon name="check" size={14} /> Approve / reactivate
                 </button>
@@ -474,14 +504,18 @@ export default function Members() {
                 <button
                   type="button"
                   className="btn btn-outline btn-sm"
-                  onClick={() => {
-                    const result = setMemberStatus(detail.id, 'suspended');
-                    Promise.resolve(result).then(() => push(`${detail.name} suspended.`, 'success')).catch((error) => push(error.message || 'Could not update member status.', 'error'));
-                  }}
+                  onClick={() => changeStatus(detail, 'suspended')}
                 >
                   Suspend
                 </button>
               )}
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => setSmsMemberId(detail.id)}
+              >
+                <Icon name="send" size={14} /> Send SMS
+              </button>
               <Link to="/admin/dues" className="btn btn-outline btn-sm">
                 <Icon name="wallet" size={14} /> Dues desk
               </Link>
@@ -591,6 +625,17 @@ export default function Members() {
           undone.
         </p>
       </Modal>
+
+      <SmsSendModal
+        open={Boolean(smsMember)}
+        onClose={() => setSmsMemberId(null)}
+        title="Send SMS"
+        subtitle={smsMember ? `${smsMember.name} · ${smsMember.phone}` : ''}
+        kind="status"
+        audience={smsMember ? { type: 'members', ids: [smsMember.id] } : { type: 'members', ids: [] }}
+        defaultMessage={SMS_TEMPLATES.status.message}
+        sentBy={session?.name}
+      />
     </div>
   );
 }

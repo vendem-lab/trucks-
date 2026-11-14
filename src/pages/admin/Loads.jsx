@@ -6,6 +6,7 @@ import StatusBadge from '../../components/StatusBadge.jsx';
 import EmptyState from '../../components/EmptyState.jsx';
 import Icon from '../../components/Icon.jsx';
 import AdminToolbar from '../../components/AdminToolbar.jsx';
+import SmsSendModal from '../../components/SmsSendModal.jsx';
 import { LOAD_STATUSES, VEHICLE_TYPES } from '../../config.js';
 import {
   acceptDeliveryConfirmation,
@@ -19,6 +20,8 @@ import {
 } from '../../lib/store.js';
 import { formatCurrency, formatDate, formatShortDate, timeAgo } from '../../lib/format.js';
 import { calculateRoadDistance } from '../../lib/routeDistance.js';
+import { SMS_TEMPLATES } from '../../lib/sms.js';
+import { matchesAlert } from '../../lib/union.js';
 import { useAuth } from '../../context/authContext.js';
 import { useToast } from '../../context/ToastContext.jsx';
 
@@ -84,6 +87,7 @@ export default function LoadsAdmin() {
   const [formErrors, setFormErrors] = useState({});
   const [detailId, setDetailId] = useState(null);
   const [deleteId, setDeleteId] = useState(null);
+  const [smsLoadId, setSmsLoadId] = useState(null);
   const [calculatingDistance, setCalculatingDistance] = useState(false);
 
   useEffect(() => {
@@ -126,6 +130,10 @@ export default function LoadsAdmin() {
 
   const detail = detailId ? state.loads.find((load) => load.id === detailId) : null;
   const deleting = deleteId ? state.loads.find((load) => load.id === deleteId) : null;
+  const smsLoad = smsLoadId ? state.loads.find((load) => load.id === smsLoadId) : null;
+  const smsMatches = smsLoad
+    ? (state.alerts || []).filter((alert) => alert.active !== false && matchesAlert(smsLoad, alert))
+    : [];
   const detailContact = detail
     ? (state.loadContacts || []).find((entry) => entry.loadId === detail.id) || null
     : null;
@@ -372,6 +380,16 @@ export default function LoadsAdmin() {
                         >
                           <Icon name="edit" size={16} />
                         </button>
+                        {load.status === 'open' && (
+                          <button
+                            type="button"
+                            className="icon-btn"
+                            onClick={() => setSmsLoadId(load.id)}
+                            aria-label={`Notify job alerts for ${load.reference}`}
+                          >
+                            <Icon name="send" size={16} />
+                          </button>
+                        )}
                         <button
                           type="button"
                           className="icon-btn icon-btn-danger"
@@ -682,6 +700,25 @@ export default function LoadsAdmin() {
           This removes the posting from the load board. This cannot be undone.
         </p>
       </Modal>
+
+      <SmsSendModal
+        open={Boolean(smsLoad)}
+        onClose={() => setSmsLoadId(null)}
+        title="Notify job alerts"
+        subtitle={
+          smsLoad
+            ? `${smsLoad.reference} · ${smsMatches.length} matching alert${smsMatches.length === 1 ? '' : 's'}`
+            : ''
+        }
+        kind="load-alert"
+        audience={
+          smsLoad
+            ? { type: 'load-alerts', value: smsLoad.id }
+            : { type: 'load-alerts', value: '' }
+        }
+        defaultMessage={SMS_TEMPLATES.loadAlert.message}
+        sentBy={session?.name}
+      />
     </div>
   );
 }

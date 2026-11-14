@@ -36,6 +36,7 @@ import PortalProfile from './pages/portal/Profile.jsx';
 import PortalDues from './pages/portal/Dues.jsx';
 import PortalAlerts from './pages/portal/Alerts.jsx';
 import PortalSettings from './pages/portal/Settings.jsx';
+import AdminSms from './pages/admin/Sms.jsx';
 
 import Dashboard from './pages/admin/Dashboard.jsx';
 import Members from './pages/admin/Members.jsx';
@@ -102,6 +103,7 @@ export default function App() {
               <Route path="news" element={<NewsAdmin />} />
               <Route path="events" element={<EventsAdmin />} />
               <Route path="enquiries" element={<Enquiries />} />
+              <Route path="sms" element={<AdminSms />} />
               <Route path="settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/admin" replace />} />
             </Route>

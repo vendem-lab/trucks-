@@ -410,7 +410,9 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  transition: transform var(--motion-standard) var(--ease-emphasized),
+    box-shadow var(--motion-standard) var(--ease-standard),
+    border-color var(--motion-standard) var(--ease-standard);
 }
 
 .service-card:hover {
@@ -626,7 +628,8 @@
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-lg);
   background: rgba(255, 255, 255, 0.04);
-  transition: border-color 0.18s ease, background 0.18s ease;
+  transition: border-color var(--motion-standard) var(--ease-standard),
+    background var(--motion-standard) var(--ease-standard);
 }
 
 .home-fleet-card:hover {
@@ -1019,7 +1022,8 @@
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--surface);
-  transition: transform 0.18s ease, box-shadow 0.18s ease;
+  transition: transform var(--motion-standard) var(--ease-emphasized),
+    box-shadow var(--motion-standard) var(--ease-standard);
 }
 
 .vehicle-card:hover {
@@ -1255,7 +1259,9 @@
   border: 1px solid var(--line);
   border-radius: 10px;
   cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color var(--motion-fast) var(--ease-standard),
+    background var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
 .service-option:hover {
@@ -2006,7 +2012,7 @@
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--surface);
-  transition: border-color 0.15s ease;
+  transition: border-color var(--motion-fast) var(--ease-standard);
 }
 
 .contact-card:hover {
@@ -2123,7 +2129,7 @@
 .faq-item summary svg {
   flex-shrink: 0;
   color: var(--muted);
-  transition: transform 0.18s ease;
+  transition: transform var(--motion-standard) var(--ease-emphasized);
 }
 
 .faq-item[open] summary svg {

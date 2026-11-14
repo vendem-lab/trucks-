@@ -23,6 +23,16 @@ npm run preview
 npm test
 ```
 
+In Windows PowerShell, use `npm.cmd` if the execution policy blocks `npm.ps1`:
+
+```powershell
+npm.cmd install
+npm.cmd run dev
+npm.cmd run build
+npm.cmd run preview
+npm.cmd test
+```
+
 Use `.env.example` as a template for local environment configuration. Set `VITE_USE_DEMO_DATA=true` to use the seeded browser-only demo. With `VITE_USE_DEMO_DATA=false`, the app connects to the Firebase project configured in `src/lib/firebase.js`.
 
 ## Firebase live mode
@@ -69,6 +79,51 @@ firebase deploy --only firestore:rules
 
 The optional `functions/` folder contains Cloud Functions, including email notification triggers for new applications and enquiries. It can be deployed later on a billing-enabled Blaze project; the client does not depend on it.
 
+## SMS notifications (Arkesel)
+
+Staff can text members from `/admin/sms` and from contextual actions across the back office:
+
+- **Bulk announcements** to all active members, a region, a membership tier, or a hand-picked list.
+- **Dues reminders** for everyone with an outstanding balance, or a single invoice from `/admin/dues`.
+- **Membership status updates** when staff approve, suspend, or reactivate a member. The **Membership status SMS** switch on the Settings page turns this off.
+- **Job alerts** for a specific open load from `/admin/loads`; only members whose active job alert matches the load are included.
+
+Every send is recorded in `smsMessages` with the audience, recipient count, sender ID, delivery status, and a short preview. The Arkesel API key stays server-side and is never included in the browser bundle.
+
+### Serverless endpoint
+
+The browser calls `POST /api/sms` (status checks use `GET`). The handler lives in `server/sms.js`, with thin adapters for both hosts:
+
+- `api/sms.js` for Vercel.
+- `netlify/functions/sms.js` plus the `/api/sms` redirect in `netlify.toml` for Netlify.
+
+Requests must include a Firebase ID token in `Authorization: Bearer <token>`. The function verifies the token against Google's secure-token certificates, then reads `users/{uid}` with the caller's token to require `role: "staff"`. No service account is needed.
+
+### Environment variables
+
+Set these in the Vercel or Netlify project settings (and in a local `.env` when using `vercel dev` or `netlify dev`):
+
+| Variable | Purpose |
+| --- | --- |
+| `ARKESEL_API_KEY` | Arkesel API key. Required for real sends. |
+| `ARKESEL_SENDER_ID` | Registered alphanumeric sender ID, for example `HAULWAY`. |
+| `ARKESEL_API_URL` | Optional override; defaults to `https://sms.arkesel.com/api/v2/sms/send`. |
+| `SMS_DRY_RUN` | `true` simulates delivery without calling Arkesel. |
+| `SMS_MAX_RECIPIENTS` | Per-request cap. Defaults to 100; the handler hard-caps at 200. |
+| `FIREBASE_PROJECT_ID` | Project used to verify tokens. Falls back to `VITE_FIREBASE_PROJECT_ID`, then `hualway`. |
+
+Never prefix the Arkesel key with `VITE_`; that would ship it to the browser. Register and approve the sender ID in the Arkesel dashboard before going live, otherwise Arkesel may reject the send or rewrite the sender.
+
+### Demo mode
+
+With `VITE_USE_DEMO_DATA=true` the app never calls `/api/sms`. Sends are simulated, marked **Simulated** in the history, and saved to the browser's local demo store. The admin composer reports the provider as Arkesel and shows a demo banner.
+
+The `smsMessages` rules ship with `firestore.rules`; deploy them with:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
 ## Project layout
 
 ```
@@ -82,12 +137,22 @@ src/
     deliveries.js        delivery and shipper-confirmation validation and records
     image.js             client-side vehicle photo compression
     union.js             dues summaries, event dates, and alert matching
+    sms.js               client SMS helpers and audience resolution
+    smsTemplates.js      shared templates, phone normalisation, and segment counts
     auth.js              Firebase and demo authentication flows
     firebase.js          Firebase client initialization
     format.js            currency, dates, and validation helpers
   components/            layouts, cards, badges, icons, and form fields
   pages/                 public pages, member portal, and staff workspace
   styles/                base, layout, page, admin, and union styles
+server/
+  sms.js                 shared Arkesel SMS handler for Vercel and Netlify
+api/
+  sms.js                 Vercel serverless adapter
+netlify/
+  functions/sms.js       Netlify serverless adapter
+netlify.toml             Netlify build, functions, and /api/sms redirect
+vercel.json              Vercel SPA rewrite
 functions/
   index.js               optional Cloud Functions and email triggers (Blaze only)
 firestore.rules          Firestore client access rules

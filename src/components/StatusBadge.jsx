@@ -18,7 +18,10 @@ const LABELS = {
   delivered: 'Delivered',
   disputed: 'Disputed',
   confirmed: 'Confirmed',
-  submitted: 'Awaiting confirmation'
+  submitted: 'Awaiting confirmation',
+  sent: 'Sent',
+  partial: 'Partial',
+  failed: 'Failed'
 };
 
 const TONES = {
@@ -41,7 +44,10 @@ const TONES = {
   delivered: 'info',
   disputed: 'danger',
   confirmed: 'success',
-  submitted: 'warning'
+  submitted: 'warning',
+  sent: 'success',
+  partial: 'warning',
+  failed: 'danger'
 };
 
 export default function StatusBadge({ status, label, dot = true }) {
