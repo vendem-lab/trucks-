@@ -19,3 +19,9 @@ desktop.ini
 # Logs
 *.log
 npm-debug.log*
+
+.vercel
+.env*
+
+# Local Netlify folder
+.netlify
