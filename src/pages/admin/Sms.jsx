@@ -151,7 +151,7 @@ export default function Sms() {
 
   return (
     <div className="admin-page">
-      <div className="admin-stat-grid">
+      <div className="admin-stat-grid sms-stat-grid">
         <div className="stat-card">
           <span className="stat-card-icon"><Icon name="message" size={20} /></span>
           <div>

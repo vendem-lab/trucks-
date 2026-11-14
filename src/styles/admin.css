@@ -1154,3 +1154,74 @@
 .sms-confirm .sms-preview {
   margin-top: 14px;
 }
+
+.sms-stat-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.sms-stat-grid .stat-card > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.sms-stat-grid .stat-card-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: var(--brand-soft);
+  color: var(--brand-dark);
+}
+
+.sms-stat-grid .stat-card-label {
+  display: block;
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.sms-stat-grid .stat-card-value {
+  display: block;
+  margin-top: 1px;
+  font-family: var(--font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.sms-stat-grid .stat-card-hint {
+  display: block;
+  margin-top: 2px;
+  font-size: 0.71rem;
+  line-height: 1.4;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
+.sms-member-option input[type="checkbox"] {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 3px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+@media (max-width: 900px) {
+  .sms-stat-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .sms-stat-grid {
+    grid-template-columns: 1fr;
+  }
+}
