@@ -109,9 +109,17 @@ async function main() {
         }
       } catch (error) {
         if (!running) break;
-        const waitMs = error.retryAfter ? error.retryAfter * 1000 : 3000;
-        log.warn(`Polling failed, retrying in ${Math.round(waitMs / 1000)}s`, error.message);
-        await new Promise((resolve) => setTimeout(resolve, waitMs));
+        // A timed-out long poll is usually a keep-alive socket the network
+        // dropped. Retrying immediately opens a fresh one, so the bot is only
+        // a few seconds late instead of a whole poll behind.
+        const timedOut = error?.name === 'TimeoutError';
+        const waitMs = timedOut ? 0 : error.retryAfter ? error.retryAfter * 1000 : 3000;
+        if (timedOut) {
+          log.debug('Long poll timed out, retrying on a fresh connection');
+        } else {
+          log.warn(`Polling failed, retrying in ${Math.round(waitMs / 1000)}s`, error.message);
+        }
+        if (waitMs) await new Promise((resolve) => setTimeout(resolve, waitMs));
       }
     }
   }

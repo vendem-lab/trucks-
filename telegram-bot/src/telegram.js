@@ -46,7 +46,10 @@ export function createTelegram({ token, log, fetchImpl = fetch }) {
       call(
         'getUpdates',
         { offset, timeout: timeoutSeconds, allowed_updates: ['message'] },
-        { timeoutMs: (timeoutSeconds + 15) * 1000 }
+        // Telegram answers a long poll a second or two after the timeout, so a
+        // short grace period is enough. A dead keep-alive socket is common on
+        // mobile and home networks; failing fast lets the loop retry at once.
+        { timeoutMs: (timeoutSeconds + 6) * 1000 }
       ),
     sendMessage,
     sendChatAction: (chatId, action = 'typing') =>
