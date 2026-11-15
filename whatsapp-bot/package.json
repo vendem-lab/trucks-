@@ -1,0 +1,22 @@
+{
+  "name": "haulway-whatsapp-bot",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "WhatsApp assistant for Haulway Drivers' Union (personal number + Groq).",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.24",
+    "dotenv": "^18.0.10",
+    "firebase-admin": "^14.5.1",
+    "pino": "^10.4.0",
+    "qrcode-terminal": "^0.12.0"
+  }
+}
