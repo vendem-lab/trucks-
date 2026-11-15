@@ -2,7 +2,7 @@ node_modules
 dist
 .vercel
 .netlify
-whatsapp-bot
+telegram-bot
 .env
 .env.*
 !.env.example

@@ -5,7 +5,7 @@ import { unionFacts } from '../src/knowledge.js';
 
 const facts = unionFacts({
   unionName: "Haulway Drivers' Union",
-  memberLine: '+233 55 770 4299',
+  memberLine: '+233 24 900 1180',
   email: 'members@haulwayunion.org',
   duesGraceDays: 14
 });
@@ -14,12 +14,12 @@ describe('buildSystemPrompt', () => {
   it('includes union facts and tier prices', () => {
     const prompt = buildSystemPrompt({ facts, member: null, dues: null, loads: [] });
     assert.match(prompt, /Haulway Drivers' Union/);
-    assert.match(prompt, /\+233 55 770 4299/);
-    assert.match(prompt, /Independent driver GHS 60 a month/);
-    assert.match(prompt, /Fleet member GHS 450 a month/);
+    assert.match(prompt, /\+233 24 900 1180/);
+    assert.match(prompt, /Independent driver GH₵60 a month/);
+    assert.match(prompt, /Fleet member GH₵450 a month/);
   });
 
-  it('includes member balances for known members', () => {
+  it('includes member balances for linked members', () => {
     const prompt = buildSystemPrompt({
       facts,
       member: {
@@ -39,8 +39,8 @@ describe('buildSystemPrompt', () => {
 
     assert.match(prompt, /MEMBER DATA/);
     assert.match(prompt, /Kwamena/);
-    assert.match(prompt, /Outstanding dues: GHS 120 across 1 invoice/);
-    assert.match(prompt, /2026-10 GHS 120/);
+    assert.match(prompt, /Outstanding dues: GH₵120 across 1 invoice/);
+    assert.match(prompt, /2026-10 GH₵120/);
   });
 
   it('says when a member has no outstanding dues', () => {
@@ -51,6 +51,12 @@ describe('buildSystemPrompt', () => {
       loads: []
     });
     assert.match(prompt, /Outstanding dues: none recorded/);
+  });
+
+  it('withholds account data from unlinked senders', () => {
+    const prompt = buildSystemPrompt({ facts, member: null, dues: null, loads: [] });
+    assert.match(prompt, /has not linked a member record/);
+    assert.doesNotMatch(prompt, /MEMBER DATA \(this is the person/);
   });
 
   it('lists open loads with rates and routes', () => {
@@ -72,6 +78,6 @@ describe('buildSystemPrompt', () => {
     });
 
     assert.match(prompt, /Tema to Kumasi/);
-    assert.match(prompt, /GHS 6,200/);
+    assert.match(prompt, /GH₵6,200/);
   });
 });

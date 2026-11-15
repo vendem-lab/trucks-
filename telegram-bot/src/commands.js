@@ -4,24 +4,38 @@ import { outstandingDues } from './data.js';
 
 export const COMMAND_HELP = [
   'Staff commands:',
-  '!who <phone> - look up a member',
-  '!dues [phone] - dues for one member, or the union total',
-  '!loads - open loads',
-  '!broadcast <message> - preview a message to all active members',
-  '!confirm - send the previewed broadcast',
-  '!cancel - discard the preview',
-  '!status - bot health',
-  '!help - this list'
+  '/who <phone> - look up a member',
+  '/dues [phone] - dues for one member, or the union total',
+  '/loads - open loads',
+  '/broadcast <message> - preview a message to linked members',
+  '/confirm - send the previewed broadcast',
+  '/cancel - discard the preview',
+  '/status - bot health',
+  '/help - this list'
+].join('\n');
+
+export const MEMBER_HELP = [
+  'You can ask me things like:',
+  '- How much do I owe?',
+  '- When are my dues due?',
+  '- Show me open loads',
+  '- How do I update my details?',
+  '',
+  '/link - connect your member record',
+  '/unlink - remove the connection',
+  '/id - show your Telegram id'
 ].join('\n');
 
 export function isStaffCommand(text) {
-  return /^![a-z]/i.test(String(text || '').trim());
+  return /^\/(who|dues|loads|broadcast|confirm|cancel|status)(@\w+)?(\s|$)/i.test(
+    String(text || '').trim()
+  );
 }
 
-function parseCommand(text) {
+export function parseCommand(text) {
   const trimmed = String(text || '').trim();
-  if (!trimmed.startsWith('!')) return null;
-  const match = trimmed.match(/^!([a-zA-Z]+)\s*([\s\S]*)$/);
+  if (!trimmed.startsWith('/')) return null;
+  const match = trimmed.match(/^\/([a-zA-Z]+)(?:@\w+)?\s*([\s\S]*)$/);
   if (!match) return null;
   return { name: match[1].toLowerCase(), argument: match[2].trim() };
 }
@@ -38,7 +52,9 @@ function memberSummary(member, dues) {
   if (outstanding.invoices.length) {
     lines.push(`Outstanding: ${formatCedis(outstanding.total)} across ${outstanding.invoices.length} invoice(s)`);
     for (const invoice of outstanding.invoices.slice(0, 4)) {
-      lines.push(`- ${invoice.period || 'period'} ${formatCedis(invoice.amount)} due ${formatDate(invoice.dueDate)} (${invoice.status})`);
+      lines.push(
+        `- ${invoice.period || 'period'} ${formatCedis(invoice.amount)} due ${formatDate(invoice.dueDate)} (${invoice.status})`
+      );
     }
   } else {
     lines.push('Outstanding: none recorded');
@@ -57,12 +73,12 @@ export function createCommands({ data, config, log, sendTo, now = () => Date.now
 
   function prune() {
     const cutoff = now() - CONFIRM_TTL_MS;
-    for (const [phone, entry] of pending) {
-      if (entry.at < cutoff) pending.delete(phone);
+    for (const [chatId, entry] of pending) {
+      if (entry.at < cutoff) pending.delete(chatId);
     }
   }
 
-  async function run({ phone, text, staff }) {
+  async function run({ chatId, text, staff }) {
     const parsed = parseCommand(text);
     if (!parsed) return null;
 
@@ -73,14 +89,15 @@ export function createCommands({ data, config, log, sendTo, now = () => Date.now
     const { name, argument } = parsed;
     prune();
 
-    if (name === 'help') return { reply: COMMAND_HELP };
+    if (name === 'help') return { reply: `${COMMAND_HELP}\n\n${MEMBER_HELP}` };
 
     if (name === 'status') {
+      const linked = await data.linkedActiveMembers();
       return {
         reply: [
           'Bot is online.',
           `Model: ${config.groqModel}`,
-          `Session: ${config.sessionId}`,
+          `Linked members: ${linked.length}`,
           `Broadcast cap: ${config.broadcastMax} recipients`,
           `Rate limit: ${config.rateLimitMax} messages per ${Math.round(config.rateLimitWindowMs / 60_000)} min`
         ].join('\n')
@@ -89,7 +106,7 @@ export function createCommands({ data, config, log, sendTo, now = () => Date.now
 
     if (name === 'who') {
       const target = normalizePhone(argument);
-      if (!target) return { reply: 'Usage: !who 0557704299' };
+      if (!target) return { reply: 'Usage: /who 0557704299' };
       const member = await data.findMemberByPhone(target);
       if (!member) return { reply: `No member found for ${formatPhone(target) || target}.` };
       const dues = await data.duesFor(member.id);
@@ -138,13 +155,15 @@ export function createCommands({ data, config, log, sendTo, now = () => Date.now
     }
 
     if (name === 'broadcast') {
-      if (!argument) return { reply: 'Usage: !broadcast <message>' };
+      if (!argument) return { reply: 'Usage: /broadcast <message>' };
 
-      const recipients = await data.activeMembers();
-      if (!recipients.length) return { reply: 'No active members with a phone number.' };
+      const recipients = await data.linkedActiveMembers();
+      if (!recipients.length) {
+        return { reply: 'No active members have linked Telegram yet. Ask them to send /link to the bot.' };
+      }
 
       const capped = recipients.slice(0, config.broadcastMax);
-      pending.set(phone, { message: argument, recipients: capped, at: now() });
+      pending.set(chatId, { message: argument, recipients: capped, at: now() });
 
       return {
         reply: [
@@ -152,26 +171,26 @@ export function createCommands({ data, config, log, sendTo, now = () => Date.now
           '',
           argument,
           '',
-          'Reply !confirm within 5 minutes to send, or !cancel.'
+          'Reply /confirm within 5 minutes to send, or /cancel.'
         ].join('\n')
       };
     }
 
     if (name === 'confirm') {
-      const entry = pending.get(phone);
-      if (!entry) return { reply: 'Nothing to confirm. Start with !broadcast <message>.' };
-      pending.delete(phone);
+      const entry = pending.get(chatId);
+      if (!entry) return { reply: 'Nothing to confirm. Start with /broadcast <message>.' };
+      pending.delete(chatId);
 
       let sent = 0;
       let failed = 0;
 
-      for (const member of entry.recipients) {
+      for (const recipient of entry.recipients) {
         try {
-          await sendTo(member.phone, entry.message);
+          await sendTo(recipient.chatId, entry.message);
           sent += 1;
         } catch (error) {
           failed += 1;
-          log?.error({ error, memberId: member.id }, 'Broadcast delivery failed');
+          log?.error('Broadcast delivery failed', { error: error.message, memberId: recipient.memberId });
         }
         const pause = Number.isFinite(config.broadcastDelayMs) ? config.broadcastDelayMs : 1500;
         if (pause > 0) await new Promise((resolve) => setTimeout(resolve, pause));
@@ -181,11 +200,11 @@ export function createCommands({ data, config, log, sendTo, now = () => Date.now
     }
 
     if (name === 'cancel') {
-      const existed = pending.delete(phone);
+      const existed = pending.delete(chatId);
       return { reply: existed ? 'Broadcast cancelled.' : 'Nothing pending.' };
     }
 
-    return { reply: `Unknown command !${name}. Send !help.` };
+    return { reply: `Unknown command /${name}. Send /help.` };
   }
 
   return { run, pending };

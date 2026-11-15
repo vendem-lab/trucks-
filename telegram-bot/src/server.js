@@ -1,6 +1,6 @@
 import http from 'node:http';
 
-export function createServer({ config, state, log }) {
+export function createServer({ config, state }) {
   return http.createServer((req, res) => {
     const url = (req.url || '/').split('?')[0];
 
@@ -8,9 +8,9 @@ export function createServer({ config, state, log }) {
       const body = {
         status: state.connected ? 'ok' : 'starting',
         connected: Boolean(state.connected),
-        uptimeSeconds: Math.round(process.uptime()),
-        model: config.groqModel,
-        session: config.sessionId
+        bot: state.bot ? `@${state.bot.username}` : null,
+        uptimeSeconds: Math.round((Date.now() - state.startedAt) / 1000),
+        model: config.groqModel
       };
       res.writeHead(200, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify(body));
@@ -26,7 +26,7 @@ export function listen(server, port, log) {
   return new Promise((resolve, reject) => {
     server.once('error', reject);
     server.listen(port, () => {
-      log?.info({ port }, 'Health server listening');
+      log?.info(`Health server listening on port ${port}`);
       resolve();
     });
   });

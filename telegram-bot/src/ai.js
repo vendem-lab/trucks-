@@ -2,7 +2,7 @@ import { formatCedis, formatDate, statusLabel, tierLabel, tierPriceList } from '
 
 export function buildSystemPrompt({ facts, member, dues, loads }) {
   const lines = [
-    `You are the WhatsApp assistant for ${facts.name}, a truck drivers' union in Ghana.`,
+    `You are the Telegram assistant for ${facts.name}, a truck drivers' union in Ghana.`,
     '',
     'How to reply:',
     '- Answer in the language the member used (English or Twi). Keep it to 2-4 short sentences, under 90 words.',
@@ -24,7 +24,7 @@ export function buildSystemPrompt({ facts, member, dues, loads }) {
   if (member) {
     lines.push(
       '',
-      'MEMBER DATA (this is the person you are talking to, verified by their WhatsApp number)',
+      'MEMBER DATA (this is the person you are talking to, linked by sharing their phone number)',
       `- Name: ${member.name || 'member'}`,
       `- Member number: ${member.memberNumber || 'not assigned'}`,
       `- Status: ${statusLabel(member.status)}`,
@@ -46,9 +46,9 @@ export function buildSystemPrompt({ facts, member, dues, loads }) {
   } else {
     lines.push(
       '',
-      'The sender is not a registered member (their number is not in the member register).',
-      'You may explain membership, dues, and how to join, but you cannot show any member account data.',
-      'Invite them to join or to call the office.'
+      'The sender has not linked a member record yet.',
+      'You may explain membership, dues, and how to join or link an account, but you cannot show any member account data.',
+      'Invite them to tap Share my number, join the union, or call the office.'
     );
   }
 
@@ -89,7 +89,7 @@ export function createAi(config, log) {
     const data = await response.json();
     const text = data?.choices?.[0]?.message?.content;
     if (!text || typeof text !== 'string') throw new Error('Groq returned an empty reply');
-    log?.debug({ model: config.groqModel, usage: data.usage }, 'Groq reply');
+    log?.debug('Groq reply', { model: config.groqModel, usage: data.usage });
     return text.trim();
   }
 

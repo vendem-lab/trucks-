@@ -4,12 +4,16 @@ const MEMBER_TTL_MS = 5 * 60_000;
 const SETTINGS_TTL_MS = 5 * 60_000;
 
 /**
- * Read-only view of the union's Firestore data. Member records are cached for
- * a few minutes so a busy chat does not re-scan the collection per message.
+ * Read-only view of the union's Firestore data, plus the Telegram link table.
+ * Member records are cached for a few minutes so a busy chat does not re-scan
+ * the collection per message.
+ *
+ * telegramLinks/{chatId} -> { memberId, phone, name, linkedAt }
  */
 export function createDataStore(db, log) {
   let memberCache = { at: 0, list: [] };
   let settingsCache = { at: 0, value: null };
+  const links = db.collection('telegramLinks');
 
   async function listMembers(force = false) {
     if (!force && Date.now() - memberCache.at < MEMBER_TTL_MS && memberCache.list.length) {
@@ -21,9 +25,15 @@ export function createDataStore(db, log) {
       memberCache = { at: Date.now(), list };
       return list;
     } catch (error) {
-      log?.error({ error }, 'Firestore: could not read members');
+      log?.error('Firestore: could not read members', error.message);
       return memberCache.list;
     }
+  }
+
+  async function memberById(memberId) {
+    if (!memberId) return null;
+    const members = await listMembers();
+    return members.find((member) => member.id === memberId) || null;
   }
 
   async function settings() {
@@ -36,7 +46,7 @@ export function createDataStore(db, log) {
       settingsCache = { at: Date.now(), value };
       return value;
     } catch (error) {
-      log?.error({ error }, 'Firestore: could not read union settings');
+      log?.error('Firestore: could not read union settings', error.message);
       return settingsCache.value || {};
     }
   }
@@ -54,7 +64,7 @@ export function createDataStore(db, log) {
       const snapshot = await db.collection('dues').where('memberId', '==', memberId).get();
       return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
     } catch (error) {
-      log?.error({ error, memberId }, 'Firestore: could not read dues');
+      log?.error('Firestore: could not read dues', error.message);
       return [];
     }
   }
@@ -67,7 +77,7 @@ export function createDataStore(db, log) {
         .sort((a, b) => String(b.postedAt || '').localeCompare(String(a.postedAt || '')))
         .slice(0, limit);
     } catch (error) {
-      log?.error({ error }, 'Firestore: could not read loads');
+      log?.error('Firestore: could not read loads', error.message);
       return [];
     }
   }
@@ -84,12 +94,76 @@ export function createDataStore(db, log) {
         .map((doc) => normalizePhone(doc.data().phone))
         .filter(Boolean);
     } catch (error) {
-      log?.error({ error }, 'Firestore: could not read staff users');
+      log?.error('Firestore: could not read staff users', error.message);
       return [];
     }
   }
 
-  return { listMembers, findMemberByPhone, duesFor, openLoads, activeMembers, staffNumbers, settings };
+  async function getLink(chatId) {
+    try {
+      const doc = await links.doc(String(chatId)).get();
+      return doc.exists ? { chatId: String(chatId), ...doc.data() } : null;
+    } catch (error) {
+      log?.error('Firestore: could not read the Telegram link', error.message);
+      return null;
+    }
+  }
+
+  async function setLink(chatId, { memberId, phone, name }) {
+    await links.doc(String(chatId)).set(
+      {
+        memberId,
+        phone: normalizePhone(phone),
+        name: name || '',
+        linkedAt: new Date().toISOString()
+      },
+      { merge: true }
+    );
+  }
+
+  async function removeLink(chatId) {
+    await links.doc(String(chatId)).delete();
+  }
+
+  /** Everyone who can receive a Telegram broadcast: linked and still active. */
+  async function linkedActiveMembers() {
+    try {
+      const snapshot = await links.get();
+      const members = await listMembers();
+      const byId = new Map(members.map((member) => [member.id, member]));
+
+      return snapshot.docs
+        .map((doc) => {
+          const link = doc.data();
+          const member = byId.get(link.memberId);
+          if (!member || member.status !== 'active') return null;
+          return {
+            chatId: doc.id,
+            memberId: member.id,
+            name: member.name || link.name || ''
+          };
+        })
+        .filter(Boolean);
+    } catch (error) {
+      log?.error('Firestore: could not read linked members', error.message);
+      return [];
+    }
+  }
+
+  return {
+    listMembers,
+    memberById,
+    findMemberByPhone,
+    duesFor,
+    openLoads,
+    activeMembers,
+    staffNumbers,
+    settings,
+    getLink,
+    setLink,
+    removeLink,
+    linkedActiveMembers
+  };
 }
 
 export function outstandingDues(dues = []) {

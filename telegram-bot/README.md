@@ -1,0 +1,116 @@
+# Haulway Telegram assistant
+
+A Telegram bot for the union, powered by Groq. It answers members using live
+Firestore data and gives staff a few deterministic commands.
+
+It is a separate Node service. The Vite app, Vercel and Netlify deployments are
+untouched.
+
+## Why Telegram
+
+The Bot API is official and free, so there is no risk of the number being banned
+and no linked-device session to keep alive. Long polling means the bot needs no
+public URL: it runs on a laptop, a VPS, or any always-on Node host.
+
+## What it does
+
+- **Member self-service** — a member taps *Share my number* once; the bot matches
+  that number to their member record and can then answer dues, status, tier and
+  open-load questions. Identity comes from Telegram, nobody types a password.
+- **Public FAQ** — until a chat is linked, the bot only explains joining, dues and
+  office details. Member data is never added to the prompt.
+- **Staff commands** — staff send `/` commands, including a capped broadcast to
+  members who have linked Telegram.
+
+## Requirements
+
+- Node.js 20 or newer
+- A bot token from [@BotFather](https://t.me/BotFather) (`/newbot`)
+- A Firebase service account for project `hualway`
+- A Groq API key (https://console.groq.com/keys)
+
+## Setup
+
+```powershell
+cd telegram-bot
+npm install
+Copy-Item .env.example .env
+```
+
+Fill in `.env`:
+
+| Variable | Meaning |
+| --- | --- |
+| `TELEGRAM_BOT_TOKEN` | Token from @BotFather. Required. |
+| `GROQ_API_KEY` | Groq key. Required. |
+| `GROQ_MODEL` | Default `openai/gpt-oss-120b`. |
+| `FIREBASE_PROJECT_ID` | `hualway`. |
+| `FIREBASE_SERVICE_ACCOUNT` | Service-account JSON on one line, or base64 of it. Leave blank to use `GOOGLE_APPLICATION_CREDENTIALS`. |
+| `BOT_STAFF_IDS` | Telegram user ids allowed to run staff commands (comma separated). Send `/id` to the bot to find yours. |
+| `BOT_STAFF_NUMBERS` | Optional staff phone numbers, for staff whose chat is linked. |
+| `BOT_BROADCAST_MAX` | Hard cap on `/broadcast` recipients (default 20). |
+| `BOT_BROADCAST_DELAY_MS` | Pause between broadcast messages (default 1500). |
+| `RATE_LIMIT_MAX` / `RATE_LIMIT_WINDOW_MINUTES` | Per-user message limit. |
+
+Create the service account in Firebase Console → Project settings → Service
+accounts → Generate new private key. Save it as `service-account.json` next to
+`.env`; the bot only needs Firestore access.
+
+## Run
+
+```powershell
+npm start
+```
+
+The log prints `Connected to Telegram as @yourbot`. Message the bot, send
+`/start`, then tap **Share my number**.
+
+Health check: `GET http://localhost:8080/health`.
+
+## Linking a member
+
+1. Member opens the bot and sends `/start`.
+2. They tap **Share my number**. Telegram only shares their own verified number.
+3. The bot normalises it and looks for `members.phone`.
+4. On a match it writes `telegramLinks/{chatId}` and confirms their member number.
+
+`/unlink` removes the link. Re-linking is instant.
+
+## Staff commands
+
+| Command | Effect |
+| --- | --- |
+| `/help` | List commands. |
+| `/who 0557704299` | Member summary with outstanding dues. |
+| `/dues` | Union-wide outstanding total. |
+| `/dues 0557704299` | Dues for one member. |
+| `/loads` | Open loads. |
+| `/broadcast <message>` | Preview a message to linked active members. |
+| `/confirm` | Send the previewed broadcast (expires after 5 minutes). |
+| `/cancel` | Discard the preview. |
+| `/status` | Bot health and limits. |
+| `/id` | Show your Telegram id (use it in `BOT_STAFF_IDS`). |
+
+Broadcasts reach only members who have linked Telegram. SMS remains the channel
+for everyone else.
+
+## Data access
+
+Reads `members`, `dues`, `loads`, `settings/union`, `users`. Writes only
+`telegramLinks`. No other Firestore writes.
+
+## Deploying
+
+Any always-on Node host works (VPS, Render, Railway, Fly.io). Set the same
+environment variables, run `npm start`, and keep the process alive. No inbound
+port or webhook is required because the bot uses long polling.
+
+## Tests
+
+```powershell
+npm test
+```
+
+Covers phone normalisation, message splitting, rate limiting, command
+parsing/broadcast confirmation, prompt building, and the handler (linking,
+unlinking, member context, staff bypass, model fallback) with fake data.

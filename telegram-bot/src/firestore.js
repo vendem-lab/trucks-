@@ -1,5 +1,19 @@
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { applicationDefault, cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+
+const BOT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+/**
+ * A relative GOOGLE_APPLICATION_CREDENTIALS is resolved against the bot folder,
+ * so `npm start` works from the repo root as well as from telegram-bot/.
+ */
+function resolveCredentialsPath() {
+  const value = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+  if (!value || path.isAbsolute(value)) return;
+  process.env.GOOGLE_APPLICATION_CREDENTIALS = path.resolve(BOT_ROOT, value);
+}
 
 function parseServiceAccount(raw) {
   const text = String(raw || '').trim();
@@ -18,6 +32,8 @@ function parseServiceAccount(raw) {
 
 export function initFirestore(config, log) {
   if (getApps().length) return getFirestore();
+
+  resolveCredentialsPath();
 
   const credentials = parseServiceAccount(config.serviceAccount);
   if (credentials) {

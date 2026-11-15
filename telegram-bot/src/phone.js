@@ -1,6 +1,6 @@
 /**
- * Normalise a phone number to the digits-only international form used by
- * WhatsApp and by the Firestore member records (e.g. 233557704299).
+ * Normalise a phone number to the digits-only international form used by the
+ * Firestore member records (e.g. 233557704299).
  * Returns an empty string when the number is not plausible.
  */
 export function normalizePhone(input) {
@@ -16,13 +16,7 @@ function trimPlausible(digits) {
   return digits.length >= 10 && digits.length <= 15 ? digits : '';
 }
 
-/** "233557704299@s.whatsapp.net" -> "233557704299" */
-export function jidToPhone(jid) {
-  const user = String(jid || '').split('@')[0].split(':')[0];
-  return normalizePhone(user);
-}
-
-/** "233557704299" -> "+233 55 770 4299" (display only). */
+/** "+233 55 770 4299" -> "+233 55 770 4299" (display only). */
 export function formatPhone(phone) {
   const digits = normalizePhone(phone);
   if (!digits) return '';

@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { formatPhone, jidToPhone, normalizePhone, samePhone } from '../src/phone.js';
+import { formatPhone, normalizePhone, samePhone } from '../src/phone.js';
 
 describe('normalizePhone', () => {
   it('converts local Ghanaian numbers', () => {
@@ -17,13 +17,6 @@ describe('normalizePhone', () => {
     assert.equal(normalizePhone(''), '');
     assert.equal(normalizePhone('12345'), '');
     assert.equal(normalizePhone(null), '');
-  });
-});
-
-describe('jidToPhone', () => {
-  it('reads the user part of a WhatsApp jid', () => {
-    assert.equal(jidToPhone('233557704299@s.whatsapp.net'), '233557704299');
-    assert.equal(jidToPhone('233557704299:12@s.whatsapp.net'), '233557704299');
   });
 });
 
