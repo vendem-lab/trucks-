@@ -101,9 +101,54 @@ Reads `members`, `dues`, `loads`, `settings/union`, `users`. Writes only
 
 ## Deploying
 
-Any always-on Node host works (VPS, Render, Railway, Fly.io). Set the same
-environment variables, run `npm start`, and keep the process alive. No inbound
-port or webhook is required because the bot uses long polling.
+The bot is a long-running process, so it must go on a host that keeps a Node
+process alive. It cannot run on Vercel or Netlify functions: long polling holds
+an open request, which serverless runtimes time out, and two pollers on the same
+token make Telegram return `409 Conflict`.
+
+| Setting | Value |
+| --- | --- |
+| Service type | Web service / background process (never static, never serverless) |
+| Root directory | `telegram-bot` — the repo root is the Vite site |
+| Build command | `npm ci` |
+| Start command | `npm start` |
+| Health check path | `/health` |
+| Instances | **1** — Telegram allows a single long-polling consumer |
+| Node version | 20 or newer |
+| Region | Frankfurt / Europe (closest to Telegram, Groq and Firestore) |
+
+Environment variables are the same as `.env`, with one difference: hosts cannot
+see your local file, so put the whole service-account JSON in
+`FIREBASE_SERVICE_ACCOUNT` (one line, or base64 of it) and leave
+`GOOGLE_APPLICATION_CREDENTIALS` unset. `PORT` is injected by the platform; the
+bot reads it, so do not hardcode it.
+
+### Render
+
+`render.yaml` at the repo root is a blueprint for this service. In the Render
+dashboard choose **New → Blueprint**, pick the repository, and enter the three
+secrets it asks for (`TELEGRAM_BOT_TOKEN`, `GROQ_API_KEY`,
+`FIREBASE_SERVICE_ACCOUNT`).
+
+The free plan sleeps after about 15 minutes without inbound HTTP, and the bot
+only makes outbound calls — so it would go silent. Either ping
+`https://<service>.onrender.com/health` every 10 minutes from a free cron service
+(cron-job.org, UptimeRobot), or use a paid background worker, which has no HTTP
+and never sleeps.
+
+### Railway
+
+**New Project → Deploy from GitHub repo**, then in the service settings set the
+root directory to `telegram-bot`, the start command to `npm start`, and add the
+variables on the **Variables** tab. Railway does not sleep, but there is no
+permanent free plan; the trial credit runs out and the Hobby plan is billed
+monthly.
+
+### Cheapest reliable option
+
+A small VPS or the office PC with `npm start` under `pm2` / Task Scheduler costs
+less than either platform and never sleeps. Any host works as long as the process
+stays up and the env vars are set.
 
 ## Tests
 

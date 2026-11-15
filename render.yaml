@@ -1,0 +1,41 @@
+# Render blueprint for the Telegram bot.
+#
+# The site itself is deployed on Vercel and Netlify; only this service belongs
+# on Render. Create it from the Render dashboard with "New > Blueprint" and
+# point it at this repository.
+services:
+  - type: web
+    name: haulway-telegram-bot
+    runtime: node
+    rootDir: telegram-bot
+    plan: free
+    region: frankfurt
+    branch: main
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health
+    # Telegram allows exactly one long-polling consumer, so never scale this up.
+    numInstances: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: FIREBASE_PROJECT_ID
+        value: hualway
+      - key: BOT_TIMEZONE
+        value: Africa/Accra
+      - key: BOT_BROADCAST_MAX
+        value: "20"
+      - key: BOT_BROADCAST_DELAY_MS
+        value: "1500"
+      # Secrets: Render asks for these on first deploy, then keeps them.
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      # Whole service-account JSON on one line (or base64 of it).
+      - key: FIREBASE_SERVICE_ACCOUNT
+        sync: false
+      - key: BOT_STAFF_IDS
+        sync: false
+      - key: BOT_STAFF_NUMBERS
+        sync: false
