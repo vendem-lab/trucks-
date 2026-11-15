@@ -43,7 +43,13 @@ export function AuthProvider({ children }) {
       const messages = {
         'auth/popup-closed-by-user': 'Google sign-in was closed before it finished.',
         'auth/popup-blocked': 'Your browser blocked the Google sign-in window. Allow pop-ups and try again.',
-        'auth/unauthorized-domain': 'This website domain is not authorized for Firebase sign-in.'
+        'auth/unauthorized-domain': 'This website domain is not authorized for Firebase sign-in.',
+        'auth/account-exists-with-different-credential':
+          'That email already has a union account with a password. Sign in with your email and password instead.',
+        'auth/credential-already-in-use':
+          'That Google account is already attached to another union account. Call the member line for help.',
+        'auth/operation-not-allowed': 'Google sign-in is not enabled for this project yet.',
+        'auth/network-request-failed': 'Could not reach Google. Check your connection and try again.'
       };
       const message = messages[error.code] || error.message || 'Google sign-in failed. Please try again.';
       setAuthError(message);
