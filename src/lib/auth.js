@@ -9,12 +9,11 @@ import {
   updatePassword as firebaseUpdatePassword
 } from 'firebase/auth';
 import { doc, getDoc, runTransaction, setDoc } from 'firebase/firestore';
-import { DEMO_STAFF } from '../config.js';
+import { DEMO_MODE, DEMO_STAFF } from '../config.js';
 import { firebaseAuth, firebaseDb } from './firebase.js';
 import { photoForVehicleType } from './fleet.js';
 import { addMember, createMemberRecord, getState, updateMember } from './store.js';
 
-const DEMO_MODE = import.meta.env.VITE_USE_DEMO_DATA === 'true';
 const SESSION_KEY = 'haulway_union_session';
 
 function today() {

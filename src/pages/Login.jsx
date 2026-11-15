@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo.jsx';
 import Field from '../components/Field.jsx';
+import GoogleButton from '../components/GoogleButton.jsx';
 import Icon from '../components/Icon.jsx';
-import { BRAND } from '../config.js';
+import { BRAND, DEMO_MODE } from '../config.js';
 import { useAuth } from '../context/authContext.js';
 import { useToast } from '../context/ToastContext.jsx';
 
@@ -158,17 +159,9 @@ export default function Login() {
             </button>
           </form>
 
-          {!import.meta.env.VITE_USE_DEMO_DATA && <>
+          {!DEMO_MODE && <>
             <div className="auth-divider" aria-hidden="true"><span>or</span></div>
-            <button type="button" className="btn btn-outline btn-block btn-lg" onClick={handleGoogleSignIn}>
-              <svg aria-hidden="true" viewBox="0 0 48 48" width="18" height="18">
-                <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.3 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6.1C12.3 13.7 17.7 9.5 24 9.5z" />
-                <path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.1 5.4-4.6 7.1l7.4 5.7c4.3-4 6.9-10 6.9-17.3z" />
-                <path fill="#FBBC05" d="M10.4 28.7a14.5 14.5 0 0 1 0-9.4l-7.8-6.1a24 24 0 0 0 0 21.6l7.8-6.1z" />
-                <path fill="#34A853" d="M24 48c6.5 0 12-2.1 16-5.7l-7.4-5.7c-2.1 1.4-4.8 2.2-8.6 2.2-6.3 0-11.7-4.2-13.6-9.9l-7.8 6.1C6.5 42.6 14.6 48 24 48z" />
-              </svg>
-              Continue with Google
-            </button>
+            <GoogleButton className="btn-block" onClick={handleGoogleSignIn} />
           </>}
 
           <p className="auth-join">

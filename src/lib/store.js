@@ -18,11 +18,10 @@ import {
   writeBatch
 } from 'firebase/firestore';
 import { firebaseAuth, firebaseDb } from './firebase.js';
+import { DEMO_MODE } from '../config.js';
 
 const STORAGE_KEY = 'haulway_union_v1';
 const listeners = new Set();
-
-const DEMO_MODE = import.meta.env.VITE_USE_DEMO_DATA === 'true';
 
 function loadState() {
   if (!DEMO_MODE) {

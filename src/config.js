@@ -1,3 +1,11 @@
+// Vite inlines env values as strings, so "false" is truthy. Normalise the flag
+// once here and every demo-mode check in the app stays honest.
+export function parseDemoMode(value) {
+  return String(value ?? '').trim().toLowerCase() === 'true';
+}
+
+export const DEMO_MODE = parseDemoMode(import.meta.env.VITE_USE_DEMO_DATA);
+
 export const BRAND = {
   name: 'Haulway Union',
   fullName: "Haulway Drivers' Union",

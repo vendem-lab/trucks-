@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHero from '../components/PageHero.jsx';
 import Field from '../components/Field.jsx';
+import GoogleButton from '../components/GoogleButton.jsx';
 import Icon from '../components/Icon.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
 import {
   BRAND,
+  DEMO_MODE,
   FAQS,
   MEMBER_BENEFITS,
   REGIONS,
@@ -54,7 +56,7 @@ const JOIN_STEPS = [
 ];
 
 export default function Membership() {
-  const { session } = useAuth();
+  const { session, loginWithGoogle } = useAuth();
   const { push } = useToast();
   const applyingWithAccount = Boolean(session?.profileMissing);
   const [form, setForm] = useState(() => ({
@@ -64,6 +66,7 @@ export default function Membership() {
   }));
   const [errors, setErrors] = useState({});
   const [created, setCreated] = useState(null);
+  const [googleBusy, setGoogleBusy] = useState(false);
 
   const member =
     session?.role === 'member' && !session.profileMissing
@@ -93,6 +96,31 @@ export default function Membership() {
   const chooseTier = (tierId) => {
     setForm((current) => ({ ...current, tier: tierId }));
     document.getElementById('join')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const handleGoogleApply = async () => {
+    if (googleBusy) return;
+    setGoogleBusy(true);
+    try {
+      const result = await loginWithGoogle();
+      if (!result.ok) {
+        push(result.error, 'error');
+        return;
+      }
+      if (result.session.profileMissing) {
+        setForm((current) => ({
+          ...current,
+          name: current.name || result.session.name || '',
+          email: result.session.email || current.email
+        }));
+        push('Google account connected. Finish the rest of the application below.', 'success');
+        document.getElementById('join')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        return;
+      }
+      push('You already have a union account. Open your portal to continue.', 'success');
+    } finally {
+      setGoogleBusy(false);
+    }
   };
 
   const handleSubmit = async (event) => {
@@ -241,6 +269,23 @@ export default function Membership() {
       <section className="section" id="join">
         <div className="container join-layout">
           <div className="join-main">
+            {!DEMO_MODE && !session && !created && (
+              <div className="card join-google">
+                <div className="join-google-copy">
+                  <span className="eyebrow">Fast track</span>
+                  <h2>Apply with Google</h2>
+                  <p>
+                    Connect your Google account and we will fill in your name and email. You finish
+                    the rest of the application below.
+                  </p>
+                </div>
+                <GoogleButton
+                  onClick={handleGoogleApply}
+                  disabled={googleBusy}
+                  label={googleBusy ? 'Opening Google…' : 'Continue with Google'}
+                />
+              </div>
+            )}
             {session?.role === 'member' && session.memberStatus === 'pending' && !session.profileMissing ? (
               <div className="card join-signed-in">
                 <span className="empty-icon"><Icon name="clock" size={26} /></span>

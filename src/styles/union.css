@@ -795,6 +795,47 @@
   padding: 30px;
 }
 
+.join-google {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+  padding: 20px 24px;
+  border-left: 3px solid var(--brand);
+}
+
+.join-google-copy h2 {
+  margin: 2px 0 6px;
+  font-size: 1.1rem;
+}
+
+.join-google-copy p {
+  margin: 0;
+  max-width: 48ch;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.join-google .google-btn {
+  flex: 0 0 auto;
+}
+
+.google-btn svg {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 640px) {
+  .join-google {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .join-google .google-btn {
+    width: 100%;
+  }
+}
+
 .join-form-card .card-head {
   margin-bottom: 24px;
 }
