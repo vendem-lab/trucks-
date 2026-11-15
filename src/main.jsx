@@ -8,6 +8,7 @@ import './styles/layout.css';
 import './styles/pages.css';
 import './styles/admin.css';
 import './styles/union.css';
+import './styles/assistant.css';
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>

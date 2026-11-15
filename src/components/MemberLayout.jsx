@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import Icon from './Icon.jsx';
 import StatusBadge from './StatusBadge.jsx';
+import AssistantWidget from './AssistantWidget.jsx';
 import { useAuth } from '../context/authContext.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { useStore } from '../lib/store.js';
@@ -109,6 +110,8 @@ export default function MemberLayout() {
         )}
         <Outlet />
       </main>
+
+      <AssistantWidget />
     </>
   );
 }
