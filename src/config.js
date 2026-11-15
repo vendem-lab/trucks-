@@ -1,10 +1,15 @@
 // Vite inlines env values as strings, so "false" is truthy. Normalise the flag
 // once here and every demo-mode check in the app stays honest.
+//
+// config.js is also imported by the serverless assistant, where Vite's
+// import.meta.env does not exist, hence the fallback object.
 export function parseDemoMode(value) {
   return String(value ?? '').trim().toLowerCase() === 'true';
 }
 
-export const DEMO_MODE = parseDemoMode(import.meta.env.VITE_USE_DEMO_DATA);
+const VITE_ENV = import.meta.env ?? {};
+
+export const DEMO_MODE = parseDemoMode(VITE_ENV.VITE_USE_DEMO_DATA);
 
 export const BRAND = {
   name: 'Haulway Union',

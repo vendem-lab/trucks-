@@ -3,6 +3,7 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Logo from '../components/Logo.jsx';
 import Field from '../components/Field.jsx';
 import GoogleButton from '../components/GoogleButton.jsx';
+import AssistantWidget from '../components/AssistantWidget.jsx';
 import Icon from '../components/Icon.jsx';
 import { BRAND, DEMO_MODE } from '../config.js';
 import { useAuth } from '../context/authContext.js';
@@ -169,6 +170,8 @@ export default function Login() {
           </p>
         </div>
       </main>
+
+      <AssistantWidget />
     </div>
   );
 }

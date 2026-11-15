@@ -1,12 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Icon from './Icon.jsx';
+import { useAuth } from '../context/authContext.js';
 import { isDemoMode } from '../lib/store.js';
-import { ASSISTANT_GREETING, ASSISTANT_SUGGESTIONS, askAssistant } from '../lib/assistant.js';
+import {
+  ASSISTANT_GREETING,
+  ASSISTANT_SUGGESTIONS,
+  PUBLIC_GREETING,
+  PUBLIC_SUGGESTIONS,
+  askAssistant
+} from '../lib/assistant.js';
 
 let counter = 0;
 const nextId = () => `assistant-${(counter += 1)}`;
 
 export default function AssistantWidget() {
+  const { session } = useAuth();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
@@ -75,6 +83,12 @@ export default function AssistantWidget() {
   // The assistant needs a signed-in Firebase account, which demo mode does not have.
   if (isDemoMode()) return null;
 
+  // Approved members get answers from their own record; everyone else gets the
+  // public FAQ, which is also what the server enforces without a token.
+  const isMember = session?.role === 'member' && !session.profileMissing && !session.profileError;
+  const greeting = isMember ? ASSISTANT_GREETING : PUBLIC_GREETING;
+  const suggestions = isMember ? ASSISTANT_SUGGESTIONS : PUBLIC_SUGGESTIONS;
+
   return (
     <>
       {open && (
@@ -85,7 +99,9 @@ export default function AssistantWidget() {
             </span>
             <div className="assistant-head-text">
               <strong>Union assistant</strong>
-              <span>Answers from your member record</span>
+              <span>
+                {isMember ? 'Answers from your member record' : 'Membership, dues and office questions'}
+              </span>
             </div>
             <button
               type="button"
@@ -99,7 +115,7 @@ export default function AssistantWidget() {
 
           <div className="assistant-log" ref={logRef} role="log" aria-live="polite">
             <div className="assistant-row">
-              <div className="assistant-bubble is-bot">{ASSISTANT_GREETING}</div>
+              <div className="assistant-bubble is-bot">{greeting}</div>
             </div>
 
             {messages.map((message) => (
@@ -123,7 +139,7 @@ export default function AssistantWidget() {
 
             {!messages.length && (
               <div className="assistant-suggestions">
-                {ASSISTANT_SUGGESTIONS.map((suggestion) => (
+                {suggestions.map((suggestion) => (
                   <button
                     key={suggestion}
                     type="button"

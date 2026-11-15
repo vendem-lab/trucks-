@@ -42,17 +42,29 @@ export function bearerToken(headers = {}) {
 }
 
 export async function verifyFirebaseToken(token, projectId) {
-  const header = decodeProtectedHeader(token);
+  let header;
+  try {
+    header = decodeProtectedHeader(token);
+  } catch {
+    throw new HttpError(401, 'That sign-in token is not valid.');
+  }
   if (!header.kid) throw new HttpError(401, 'The sign-in token is missing a key id.');
   const certs = await getCertificates();
   const pem = certs[header.kid];
   if (!pem) throw new HttpError(401, 'The sign-in token was signed with an unknown key.');
   const key = await importX509(pem, 'RS256');
-  const { payload } = await jwtVerify(token, key, {
-    issuer: `https://securetoken.google.com/${projectId}`,
-    audience: projectId,
-    clockTolerance: 5
-  });
+
+  let payload;
+  try {
+    ({ payload } = await jwtVerify(token, key, {
+      issuer: `https://securetoken.google.com/${projectId}`,
+      audience: projectId,
+      clockTolerance: 5
+    }));
+  } catch {
+    throw new HttpError(401, 'That sign-in token is not valid or has expired.');
+  }
+
   if (!payload.sub) throw new HttpError(401, 'The sign-in token has no subject.');
   return payload;
 }

@@ -16,15 +16,23 @@ export const ASSISTANT_SUGGESTIONS = [
   'How do I update my details?'
 ];
 
+/** Shown to visitors who are not signed in, so no account data is promised. */
+export const PUBLIC_GREETING =
+  'Hello. Ask me about joining the union, dues, membership tiers or where to find us.';
+
+export const PUBLIC_SUGGESTIONS = [
+  'How much are dues?',
+  'How do I join the union?',
+  'What do members get?',
+  'Where is the union office?'
+];
+
 export const ASSISTANT_FALLBACK = `I could not reach the assistant. Please try again, or call the union office on ${BRAND.memberLine}.`;
 
+/** Null for visitors: the server then answers from public facts only. */
 async function authToken() {
   const user = firebaseAuth.currentUser;
-  if (!user) {
-    const error = new Error('Sign in again to use the union assistant.');
-    error.code = 'not-signed-in';
-    throw error;
-  }
+  if (!user) return null;
   return user.getIdToken();
 }
 
@@ -38,9 +46,9 @@ function friendlyError(status, message) {
 export async function fetchAssistantConfig() {
   try {
     const token = await authToken();
-    const response = await fetch('/api/assistant', {
-      headers: { Accept: 'application/json', Authorization: `Bearer ${token}` }
-    });
+    const headers = { Accept: 'application/json' };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const response = await fetch('/api/assistant', { headers });
     if (!response.ok) return { configured: false };
     return await response.json();
   } catch (error) {
@@ -50,15 +58,14 @@ export async function fetchAssistantConfig() {
 
 export async function askAssistant(messages) {
   const token = await authToken();
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   let response;
   try {
     response = await fetch('/api/assistant', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
+      headers,
       body: JSON.stringify({ messages })
     });
   } catch (error) {

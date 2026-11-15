@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { assistantFacts, buildAssistantPrompt } from './assistantPrompt.js';
+import {
+  assistantFacts,
+  buildAssistantPrompt,
+  buildPublicAssistantPrompt
+} from './assistantPrompt.js';
 
 const facts = assistantFacts({
   unionName: "Haulway Drivers' Union",
@@ -104,5 +108,29 @@ describe('buildAssistantPrompt', () => {
     expect(prompt).toContain('Tema to Kumasi');
     expect(prompt).toContain('GH₵6,200');
     expect(prompt).toContain('LD-2026-1042');
+  });
+});
+
+describe('buildPublicAssistantPrompt', () => {
+  it('carries the union facts visitors can be given', () => {
+    const prompt = buildPublicAssistantPrompt({ facts });
+    expect(prompt).toContain("Haulway Drivers' Union");
+    expect(prompt).toContain('+233 24 900 1180');
+    expect(prompt).toContain('members@haulwayunion.org');
+    expect(prompt).toContain('Independent driver GH₵60 a month');
+    expect(prompt).toContain('apply on the Membership page');
+  });
+
+  it('states that no account is visible', () => {
+    const prompt = buildPublicAssistantPrompt({ facts });
+    expect(prompt).toContain('not signed in');
+    expect(prompt).toContain('Never guess what someone owes');
+    expect(prompt).not.toContain('MEMBER ACCOUNT');
+  });
+
+  it('never includes member data even when the site has members', () => {
+    const prompt = buildPublicAssistantPrompt({ facts });
+    expect(prompt).not.toContain('Kwamena');
+    expect(prompt).not.toContain('HU-');
   });
 });

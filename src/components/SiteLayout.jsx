@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import Logo from './Logo.jsx';
 import Icon from './Icon.jsx';
+import AssistantWidget from './AssistantWidget.jsx';
 import { BRAND } from '../config.js';
 import { isDemoMode } from '../lib/store.js';
 import { useAuth } from '../context/authContext.js';
@@ -141,6 +142,8 @@ export default function SiteLayout() {
           </span>
         </div>
       </footer>
+
+      <AssistantWidget />
     </div>
   );
 }

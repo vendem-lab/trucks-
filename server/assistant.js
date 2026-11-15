@@ -1,4 +1,8 @@
-import { assistantFacts, buildAssistantPrompt } from '../src/lib/assistantPrompt.js';
+import {
+  assistantFacts,
+  buildAssistantPrompt,
+  buildPublicAssistantPrompt
+} from '../src/lib/assistantPrompt.js';
 import {
   HttpError,
   bearerToken,
@@ -21,19 +25,33 @@ const MAX_TURNS = 8;
 const MAX_TURN_CHARS = 600;
 const MAX_TOTAL_CHARS = 4000;
 const MAX_REQUESTS = 10;
+const PUBLIC_MAX_REQUESTS = 6;
 const WINDOW_MS = 60_000;
 
 const hits = new Map();
 
-function allowRequest(uid, now = Date.now()) {
-  const recent = (hits.get(uid) || []).filter((at) => now - at < WINDOW_MS);
-  if (recent.length >= MAX_REQUESTS) {
-    hits.set(uid, recent);
+function allowRequest(key, limit, now = Date.now()) {
+  const recent = (hits.get(key) || []).filter((at) => now - at < WINDOW_MS);
+  if (recent.length >= limit) {
+    hits.set(key, recent);
     return false;
   }
   recent.push(now);
-  hits.set(uid, recent);
+  hits.set(key, recent);
   return true;
+}
+
+/** Visitors are rate limited by address; members by Firebase uid. */
+function clientIp(headers = {}) {
+  const forwarded = headers['x-forwarded-for'] || headers['X-Forwarded-For'];
+  const first = String(forwarded || '').split(',')[0].trim();
+  return (
+    first ||
+    headers['x-nf-client-connection-ip'] ||
+    headers['x-real-ip'] ||
+    headers['X-Real-IP'] ||
+    'unknown'
+  );
 }
 
 function modelFrom(env) {
@@ -69,7 +87,7 @@ function sanitiseMessages(raw) {
 
   if (!messages.length) throw new HttpError(400, 'Send a message to the assistant.');
   if (messages[messages.length - 1].role !== 'user') {
-    throw new HttpError(400, 'The last message must come from the member.');
+    throw new HttpError(400, 'The last message must come from the person asking.');
   }
   if (total > MAX_TOTAL_CHARS) {
     throw new HttpError(413, 'That conversation is too long. Start a new chat.');
@@ -118,7 +136,7 @@ async function loadContext({ projectId, token, uid }) {
     .sort((a, b) => String(b.postedAt || '').localeCompare(String(a.postedAt || '')))
     .slice(0, 5);
 
-  return { member, dues, loads: sortedLoads, settings };
+  return { profile, member, dues, loads: sortedLoads, settings };
 }
 
 async function callGroq({ env, model, messages }) {
@@ -154,19 +172,46 @@ async function callGroq({ env, model, messages }) {
   return reply.trim();
 }
 
+async function publicReply({ env, model, conversation }) {
+  const facts = assistantFacts({});
+  const system = buildPublicAssistantPrompt({ facts });
+
+  try {
+    const reply = await callGroq({
+      env,
+      model,
+      messages: [{ role: 'system', content: system }, ...conversation]
+    });
+    return { status: 200, body: { reply, model, mode: 'public' } };
+  } catch (error) {
+    console.error('Assistant reply failed.', error);
+    throw new HttpError(
+      502,
+      facts.phone
+        ? `The assistant is unavailable right now. Please call the union office on ${facts.phone}.`
+        : 'The assistant is unavailable right now. Please try again shortly.'
+    );
+  }
+}
+
 export async function handleAssistantRequest({ method = 'GET', headers = {}, body, env = {} }) {
   try {
     const projectId = projectIdFrom(env);
     const token = bearerToken(headers);
-    if (!token) throw new HttpError(401, 'Sign in to use the union assistant.');
-    const auth = await verifyFirebaseToken(token, projectId);
+    // A bad or expired token must fail loudly rather than quietly downgrade the
+    // caller to the public assistant.
+    const auth = token ? await verifyFirebaseToken(token, projectId) : null;
     const model = modelFrom(env);
     const verb = String(method).toUpperCase();
 
     if (verb === 'GET') {
       return {
         status: 200,
-        body: { configured: Boolean(env.GROQ_API_KEY), model }
+        body: {
+          configured: Boolean(env.GROQ_API_KEY),
+          model,
+          mode: auth ? 'member' : 'public'
+        }
       };
     }
 
@@ -174,19 +219,31 @@ export async function handleAssistantRequest({ method = 'GET', headers = {}, bod
     if (!env.GROQ_API_KEY) {
       throw new HttpError(503, 'The union assistant is not switched on yet.');
     }
-    if (!allowRequest(auth.sub)) {
+
+    const conversation = sanitiseMessages(parseBody(body).messages);
+
+    if (!auth) {
+      if (!allowRequest(`ip:${clientIp(headers)}`, PUBLIC_MAX_REQUESTS)) {
+        throw new HttpError(429, 'You are sending messages quickly. Try again in a minute.');
+      }
+      return await publicReply({ env, model, conversation });
+    }
+
+    if (!allowRequest(`uid:${auth.sub}`, MAX_REQUESTS)) {
       throw new HttpError(429, 'You are sending messages quickly. Try again in a minute.');
     }
 
-    const conversation = sanitiseMessages(parseBody(body).messages);
-    const { member, dues, loads, settings } = await loadContext({
+    const { profile, member, dues, loads, settings } = await loadContext({
       projectId,
       token,
       uid: auth.sub
     });
 
     const facts = assistantFacts(settings);
-    const system = buildAssistantPrompt({ facts, member, dues, loads });
+    const system =
+      !member && profile?.role === 'staff'
+        ? buildPublicAssistantPrompt({ facts })
+        : buildAssistantPrompt({ facts, member, dues, loads });
 
     let reply;
     try {
@@ -201,7 +258,7 @@ export async function handleAssistantRequest({ method = 'GET', headers = {}, bod
       );
     }
 
-    return { status: 200, body: { reply, model } };
+    return { status: 200, body: { reply, model, mode: 'member' } };
   } catch (error) {
     const status =
       error.status && error.status >= 400 && error.status < 600 ? error.status : 500;
