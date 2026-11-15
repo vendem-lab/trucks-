@@ -17,14 +17,24 @@
   background: var(--brand);
   color: #fff;
   box-shadow: var(--shadow-lg);
-  cursor: pointer;
-  transition: transform var(--motion-fast) var(--ease-standard),
-    background var(--motion-fast) var(--ease-standard);
+  cursor: grab;
+  /* Pointer events own the gesture: no page scroll or text selection while dragging. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background var(--motion-fast) var(--ease-standard),
+    box-shadow var(--motion-fast) var(--ease-standard);
 }
 
+/* Deliberately no transform on hover: it would shift getBoundingClientRect and
+   make the first drag frame jump by a couple of pixels. */
 .assistant-launch:hover {
   background: var(--brand-dark);
-  transform: translateY(-2px);
+}
+
+.assistant-launch.is-dragging {
+  cursor: grabbing;
+  transition: none;
 }
 
 .assistant-launch:focus-visible {

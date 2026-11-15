@@ -9,9 +9,35 @@ import {
   PUBLIC_SUGGESTIONS,
   askAssistant
 } from '../lib/assistant.js';
+import {
+  DRAG_THRESHOLD,
+  clampPosition,
+  panelLayout,
+  readStoredPosition,
+  savePosition
+} from '../lib/assistantPosition.js';
 
 let counter = 0;
 const nextId = () => `assistant-${(counter += 1)}`;
+
+function useViewport() {
+  const [size, setSize] = useState(() => ({
+    width: typeof window === 'undefined' ? 1024 : window.innerWidth,
+    height: typeof window === 'undefined' ? 768 : window.innerHeight
+  }));
+
+  useEffect(() => {
+    const onResize = () => setSize({ width: window.innerWidth, height: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    window.addEventListener('orientationchange', onResize);
+    return () => {
+      window.removeEventListener('resize', onResize);
+      window.removeEventListener('orientationchange', onResize);
+    };
+  }, []);
+
+  return size;
+}
 
 export default function AssistantWidget() {
   const { session } = useAuth();
@@ -19,8 +45,13 @@ export default function AssistantWidget() {
   const [messages, setMessages] = useState([]);
   const [draft, setDraft] = useState('');
   const [busy, setBusy] = useState(false);
+  const [position, setPosition] = useState(readStoredPosition);
+  const [dragging, setDragging] = useState(false);
   const logRef = useRef(null);
   const inputRef = useRef(null);
+  const dragRef = useRef(null);
+  const draggedRef = useRef(false);
+  const viewport = useViewport();
 
   useEffect(() => {
     if (open) inputRef.current?.focus();
@@ -39,6 +70,85 @@ export default function AssistantWidget() {
     const node = logRef.current;
     if (node) node.scrollTop = node.scrollHeight;
   }, [messages, busy, open]);
+
+  // A window resize can leave a saved position off screen.
+  useEffect(() => {
+    setPosition((current) => {
+      if (!current) return current;
+      const next = clampPosition(current, viewport.width, viewport.height);
+      return next.x === current.x && next.y === current.y ? current : next;
+    });
+  }, [viewport.width, viewport.height]);
+
+  const handlePointerDown = (event) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      originX: rect.left,
+      originY: rect.top,
+      moved: false,
+      last: null
+    };
+    // Capture keeps move/up events coming when the cursor leaves the button,
+    // but it throws for pointers the browser no longer considers active.
+    try {
+      event.currentTarget.setPointerCapture?.(event.pointerId);
+    } catch {
+      /* drag still works without capture */
+    }
+  };
+
+  const handlePointerMove = (event) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const dx = event.clientX - drag.startX;
+    const dy = event.clientY - drag.startY;
+
+    if (!drag.moved && Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+    if (!drag.moved) {
+      drag.moved = true;
+      setDragging(true);
+    }
+
+    const next = clampPosition(
+      { x: drag.originX + dx, y: drag.originY + dy },
+      viewport.width,
+      viewport.height
+    );
+    drag.last = next;
+    setPosition(next);
+  };
+
+  const handlePointerUp = (event) => {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    dragRef.current = null;
+    setDragging(false);
+    try {
+      event.currentTarget.releasePointerCapture?.(event.pointerId);
+    } catch {
+      /* pointer already released */
+    }
+
+    if (drag.moved) {
+      draggedRef.current = true;
+      if (drag.last) savePosition(drag.last);
+    }
+  };
+
+  const handleLaunchClick = () => {
+    // A drag ends with a click event; swallow that one.
+    if (draggedRef.current) {
+      draggedRef.current = false;
+      return;
+    }
+    setOpen((value) => !value);
+  };
 
   const send = useCallback(
     async (text) => {
@@ -89,10 +199,20 @@ export default function AssistantWidget() {
   const greeting = isMember ? ASSISTANT_GREETING : PUBLIC_GREETING;
   const suggestions = isMember ? ASSISTANT_SUGGESTIONS : PUBLIC_SUGGESTIONS;
 
+  const launchStyle = position
+    ? { left: `${position.x}px`, top: `${position.y}px`, right: 'auto', bottom: 'auto' }
+    : undefined;
+
   return (
     <>
       {open && (
-        <section id="union-assistant" className="assistant-panel" role="dialog" aria-label="Union assistant">
+        <section
+          id="union-assistant"
+          className="assistant-panel"
+          style={panelLayout(position, viewport.width, viewport.height)}
+          role="dialog"
+          aria-label="Union assistant"
+        >
           <header className="assistant-head">
             <span className="assistant-mark">
               <Icon name="spark" size={18} />
@@ -187,8 +307,13 @@ export default function AssistantWidget() {
 
       <button
         type="button"
-        className={`assistant-launch ${open ? 'is-open' : ''}`}
-        onClick={() => setOpen((value) => !value)}
+        className={`assistant-launch ${open ? 'is-open' : ''} ${dragging ? 'is-dragging' : ''}`}
+        style={launchStyle}
+        onPointerDown={handlePointerDown}
+        onPointerMove={handlePointerMove}
+        onPointerUp={handlePointerUp}
+        onPointerCancel={handlePointerUp}
+        onClick={handleLaunchClick}
         aria-expanded={open}
         aria-controls="union-assistant"
         aria-label={open ? 'Close the union assistant' : 'Open the union assistant'}
