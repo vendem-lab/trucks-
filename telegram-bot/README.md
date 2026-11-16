@@ -123,32 +123,44 @@ see your local file, so put the whole service-account JSON in
 `GOOGLE_APPLICATION_CREDENTIALS` unset. `PORT` is injected by the platform; the
 bot reads it, so do not hardcode it.
 
-### Render
+### Render — the zero-cost route
 
 `render.yaml` at the repo root is a blueprint for this service. In the Render
 dashboard choose **New → Blueprint**, pick the repository, and enter the three
 secrets it asks for (`TELEGRAM_BOT_TOKEN`, `GROQ_API_KEY`,
-`FIREBASE_SERVICE_ACCOUNT`).
+`FIREBASE_SERVICE_ACCOUNT`). The Hobby workspace needs no card, so the whole
+deployment is $0.
 
-The free plan sleeps after about 15 minutes without inbound HTTP, and the bot
-only makes outbound calls — so it would go silent. Either ping
-`https://<service>.onrender.com/health` every 10 minutes from a free cron service
-(cron-job.org, UptimeRobot), or use a paid background worker, which has no HTTP
-and never sleeps.
+Two limits come with free:
 
-### Railway
+- **It sleeps after 15 minutes without inbound traffic.** The bot only makes
+  outbound calls, so it would go quiet. Fix: a free monitor such as
+  cron-job.org or UptimeRobot pinging `https://<service>.onrender.com/health`
+  every 10 minutes. That ping is ordinary traffic and keeps the idle timer from
+  firing. Render's own health check does not count.
+- **750 free instance hours per workspace per month.** A 31-day month is 744
+  hours, so one always-on service just fits. Do not run a second free web
+  service in the same workspace, or the allowance runs out before month end and
+  Render suspends both until the 1st.
 
-**New Project → Deploy from GitHub repo**, then in the service settings set the
-root directory to `telegram-bot`, the start command to `npm start`, and add the
-variables on the **Variables** tab. Railway does not sleep, but there is no
-permanent free plan; the trial credit runs out and the Hobby plan is billed
-monthly.
+### Railway — not free
 
-### Cheapest reliable option
+**New Project → Deploy from GitHub repo**, then set the root directory to
+`telegram-bot`, the start command to `npm start`, and add the variables on the
+**Variables** tab. Railway does not sleep, but there is no permanent free plan:
+the trial credit runs out and Hobby is billed monthly. Skip it if cost matters.
 
-A small VPS or the office PC with `npm start` under `pm2` / Task Scheduler costs
-less than either platform and never sleeps. Any host works as long as the process
-stays up and the env vars are set.
+### Office PC — also zero cost
+
+`start-bot.cmd` runs the bot from its own folder and appends to `bot.log`. To
+start it at login, register it once in Task Scheduler (or paste this):
+
+```powershell
+schtasks /Create /TN "Haulway Telegram bot" /SC ONLOGON /TR "\"$PWD\start-bot.cmd\"" /F
+```
+
+The trade-off is uptime: the bot is only online while the PC is on. Good enough
+while testing, and the cost is a Windows login.
 
 ## Tests
 

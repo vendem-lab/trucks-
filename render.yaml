@@ -16,6 +16,9 @@ services:
     healthCheckPath: /health
     # Telegram allows exactly one long-polling consumer, so never scale this up.
     numInstances: 1
+    # Free plan: $0, but it sleeps after 15 idle minutes and the workspace gets
+    # 750 instance hours a month (744 in a 31-day month). Point a free uptime
+    # monitor at /health every 10 minutes to keep it awake.
     envVars:
       - key: NODE_VERSION
         value: "22"
