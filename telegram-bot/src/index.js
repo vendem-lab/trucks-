@@ -117,7 +117,11 @@ async function main() {
         if (timedOut) {
           log.debug('Long poll timed out, retrying on a fresh connection');
         } else {
-          log.warn(`Polling failed, retrying in ${Math.round(waitMs / 1000)}s`, error.message);
+          const cause = error?.cause?.code || error?.cause?.message;
+          log.warn(
+            `Polling failed, retrying in ${Math.round(waitMs / 1000)}s`,
+            cause ? `${error.message} (${cause})` : error.message
+          );
         }
         if (waitMs) await new Promise((resolve) => setTimeout(resolve, waitMs));
       }
