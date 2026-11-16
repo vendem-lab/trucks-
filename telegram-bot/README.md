@@ -152,15 +152,28 @@ the trial credit runs out and Hobby is billed monthly. Skip it if cost matters.
 
 ### Office PC — also zero cost
 
-`start-bot.cmd` runs the bot from its own folder and appends to `bot.log`. To
-start it at login, register it once in Task Scheduler (or paste this):
+`start-bot.vbs` launches `start-bot.cmd` with no console window, and the batch
+file restarts the bot if it ever exits (10s pause). Output goes to `bot.log`.
+
+To start it at login, put a shortcut in your Startup folder — no admin rights
+needed:
 
 ```powershell
-schtasks /Create /TN "Haulway Telegram bot" /SC ONLOGON /TR "\"$PWD\start-bot.cmd\"" /F
+$bot = "C:\path\to\trucks\telegram-bot"
+$startup = [Environment]::GetFolderPath('Startup')
+$ws = New-Object -ComObject WScript.Shell
+$lnk = $ws.CreateShortcut((Join-Path $startup 'Haulway Telegram bot.lnk'))
+$lnk.TargetPath = 'wscript.exe'
+$lnk.Arguments = '"' + (Join-Path $bot 'start-bot.vbs') + '"'
+$lnk.WorkingDirectory = $bot
+$lnk.WindowStyle = 7
+$lnk.Save()
 ```
 
-The trade-off is uptime: the bot is only online while the PC is on. Good enough
-while testing, and the cost is a Windows login.
+(`schtasks /SC ONLOGON` does the same job but needs an elevated prompt.)
+
+The trade-off is uptime: the bot is only online while the PC is on and the user
+is logged in. Good enough while testing, and the cost is a Windows login.
 
 ## Tests
 
