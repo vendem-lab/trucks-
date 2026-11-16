@@ -35,10 +35,9 @@ services:
         sync: false
       - key: GROQ_API_KEY
         sync: false
-      # Whole service-account JSON on one line (or base64 of it).
+      # Whole service-account JSON on one line, or base64 of it.
       - key: FIREBASE_SERVICE_ACCOUNT
         sync: false
-      - key: BOT_STAFF_IDS
-        sync: false
+      # Staff are recognised by this phone once their chat is linked.
       - key: BOT_STAFF_NUMBERS
-        sync: false
+        value: "233557704299"
