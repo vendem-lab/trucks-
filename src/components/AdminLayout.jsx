@@ -125,7 +125,7 @@ export default function AdminLayout() {
             <p>{meta.subtitle}</p>
           </div>
           <div className="admin-topbar-actions">
-            <Link to="/admin/loads?new=1" className="btn btn-outline btn-sm admin-hide-sm">
+            <Link to="/admin/loads?new=1" className="btn btn-primary btn-sm admin-hide-sm">
               <Icon name="plus" size={15} /> New load
             </Link>
             <span className="admin-date">{new Date().toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' })}</span>

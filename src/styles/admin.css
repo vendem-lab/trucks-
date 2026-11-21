@@ -5,18 +5,18 @@
 .admin-page {
   display: flex;
   flex-direction: column;
-  gap: 22px;
+  gap: 28px;
 }
 
 .admin-stat-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 18px;
+  gap: 20px;
 }
 
 .admin-grid {
   display: grid;
-  gap: 22px;
+  gap: 24px;
 }
 
 .admin-grid-main {
