@@ -8,7 +8,7 @@ export default defineConfig({
     strictPort: true
   },
   test: {
-    // telegram-bot is a standalone service with its own node:test suite.
-    exclude: ['**/node_modules/**', '**/dist/**', 'telegram-bot/**']
+    // Standalone services and emulator specs use their own runners.
+    exclude: ['**/node_modules/**', '**/dist/**', 'telegram-bot/**', 'test/**']
   }
 });

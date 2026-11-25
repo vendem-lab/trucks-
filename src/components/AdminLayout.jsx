@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import Logo from './Logo.jsx';
 import Icon from './Icon.jsx';
+import { SkeletonTable } from './Skeleton.jsx';
 import { useAuth } from '../context/authContext.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { useStore } from '../lib/store.js';
@@ -133,7 +134,7 @@ export default function AdminLayout() {
         </header>
 
         <div className="admin-content">
-          {state.loading ? <div className="card">Loading union data…</div> : <Outlet />}
+          {state.loading ? <SkeletonTable rows={6} columns={5} /> : <Outlet />}
         </div>
       </main>
     </div>

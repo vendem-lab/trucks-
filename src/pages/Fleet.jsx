@@ -4,6 +4,7 @@ import PageHero from '../components/PageHero.jsx';
 import FleetCard from '../components/FleetCard.jsx';
 import EmptyState from '../components/EmptyState.jsx';
 import Icon from '../components/Icon.jsx';
+import { SkeletonGrid } from '../components/Skeleton.jsx';
 import { useStore } from '../lib/store.js';
 
 function newestFirst(a, b) {
@@ -94,7 +95,7 @@ export default function Fleet() {
           </div>
 
           {state.loading ? (
-            <div className="card"><p>Loading the member fleet…</p></div>
+            <SkeletonGrid count={6} lines={2} />
           ) : filtered.length ? (
             <div className="fleet-grid">
               {filtered.map((vehicle) => (

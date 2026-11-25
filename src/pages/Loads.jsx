@@ -7,6 +7,7 @@ import Field from '../components/Field.jsx';
 import Icon from '../components/Icon.jsx';
 import Modal from '../components/Modal.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
+import { SkeletonGrid } from '../components/Skeleton.jsx';
 import { ALERT_FREQUENCIES, BRAND, VEHICLE_TYPES } from '../config.js';
 import {
   addAlert,
@@ -363,9 +364,7 @@ export default function Loads() {
           </div>
 
           {state.loading ? (
-            <div className="card">
-              <p>Loading the load board…</p>
-            </div>
+            <SkeletonGrid count={6} lines={3} />
           ) : filtered.length ? (
             <div className="load-grid">
               {filtered.map((load) => (

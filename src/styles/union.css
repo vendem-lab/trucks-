@@ -25,9 +25,9 @@
 }
 
 .inline-note-danger {
-  border-color: #fecaca;
+  border-color: #f0c9c4;
   background: var(--red-soft);
-  color: #991b1b;
+  color: #8f1c13;
 }
 
 .inline-note-danger svg {
@@ -53,19 +53,19 @@
 ------------------------------------------------------------------ */
 
 .hero-union {
-  padding: 84px 0 92px;
+  padding: 88px 0 96px;
   background:
-    radial-gradient(760px 460px at 84% -12%, rgba(224, 169, 46, 0.18), transparent 62%),
-    radial-gradient(880px 520px at 6% 108%, rgba(15, 118, 110, 0.38), transparent 64%),
-    linear-gradient(155deg, #081a1a 0%, #0c2724 52%, #081a1a 100%);
+    radial-gradient(760px 460px at 84% -12%, rgba(184, 134, 47, 0.2), transparent 62%),
+    radial-gradient(880px 520px at 6% 108%, rgba(14, 111, 102, 0.34), transparent 64%),
+    linear-gradient(155deg, #1a1714 0%, #241f1a 52%, #1a1714 100%);
 }
 
 .hero-union .hero-accent {
-  color: #f3c969;
+  color: #d9b063;
 }
 
 .hero-union .hero-glow {
-  background: radial-gradient(circle, rgba(224, 169, 46, 0.18), transparent 68%);
+  background: radial-gradient(circle, rgba(184, 134, 47, 0.18), transparent 68%);
 }
 
 .hero-proof {
@@ -93,7 +93,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  background: linear-gradient(150deg, rgba(15, 118, 110, 0.55), rgba(8, 26, 26, 0.9));
+  background: linear-gradient(150deg, rgba(14, 111, 102, 0.55), rgba(8, 26, 26, 0.9));
   border-color: rgba(143, 224, 212, 0.24);
 }
 
@@ -110,7 +110,7 @@
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: #8fe0d4;
+  color: #9fd8cf;
 }
 
 .union-card-name {
@@ -168,7 +168,7 @@
 }
 
 .union-card-foot svg {
-  color: #8fe0d4;
+  color: #9fd8cf;
 }
 
 .union-card-foot .union-card-chip {
@@ -177,11 +177,11 @@
   width: 34px;
   height: 24px;
   border-radius: 5px;
-  background: linear-gradient(135deg, #f3c969, #e0a92e);
+  background: linear-gradient(135deg, #d9b063, #b8862f);
   font-family: var(--font-display);
   font-size: 0.65rem;
   font-weight: 700;
-  color: #3a2a05;
+  color: #4a3410;
 }
 
 /* ------------------------------------------------------------------
@@ -241,7 +241,7 @@
   padding: 13px 14px;
   border: 1px solid var(--line-soft);
   border-radius: 10px;
-  background: #f7faf9;
+  background: #f8f5ef;
 }
 
 .load-stop span {
@@ -385,7 +385,7 @@
 }
 
 .load-lock-open {
-  color: #15803d;
+  color: #17794a;
 }
 
 .load-board-note {
@@ -481,12 +481,12 @@
   height: 34px;
   flex-shrink: 0;
   border-radius: 9px;
-  background: #f1f4f8;
+  background: #f4efe7;
   color: var(--muted);
 }
 
 .loads-filter {
-  background: #f7faf9;
+  background: #f8f5ef;
 }
 
 /* ------------------------------------------------------------------
@@ -656,7 +656,7 @@
 
 .tier-card-featured {
   border-color: var(--brand);
-  box-shadow: 0 18px 44px rgba(15, 118, 110, 0.14);
+  box-shadow: 0 18px 44px rgba(14, 111, 102, 0.14);
 }
 
 .tier-flag {
@@ -669,7 +669,7 @@
   font-size: 0.65rem;
   font-weight: 700;
   letter-spacing: 0.04em;
-  color: #3a2a05;
+  color: #4a3410;
 }
 
 .tier-head h3 {
@@ -1030,7 +1030,7 @@
   min-height: 290px;
   background:
     radial-gradient(400px 260px at 72% 18%, rgba(224, 169, 46, 0.3), transparent 66%),
-    linear-gradient(150deg, #0b2b28, #115e59);
+    linear-gradient(150deg, #0a2b27, #0a544e);
   color: rgba(255, 255, 255, 0.85);
 }
 
@@ -1338,14 +1338,14 @@
   margin-top: 6px;
   overflow: hidden;
   border-radius: 99px;
-  background: #eef1f5;
+  background: #f1ece3;
 }
 
 .event-capacity-track span {
   display: block;
   height: 100%;
   border-radius: 99px;
-  background: linear-gradient(90deg, var(--brand), #2dd4bf);
+  background: linear-gradient(90deg, var(--brand), #4fb8ab);
 }
 
 .event-card-actions {
@@ -1495,7 +1495,7 @@
 .article-head {
   padding: 54px 0 36px;
   border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, #f4f7fa 0%, #fff 100%);
+  background: linear-gradient(180deg, #f7f3ec 0%, #fff 100%);
 }
 
 .article-back {
@@ -1790,7 +1790,7 @@
   height: 30px;
   flex-shrink: 0;
   border-radius: 8px;
-  background: #f1f4f8;
+  background: #f4efe7;
   color: var(--text-soft);
 }
 
@@ -1826,7 +1826,7 @@
 .portal-head {
   padding: 34px 0 0;
   border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, #f1f8f7 0%, #fff 100%);
+  background: linear-gradient(180deg, #f6f2ea 0%, #fff 100%);
 }
 
 .portal-head-inner {
@@ -1875,12 +1875,14 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 11px 14px;
+  padding: 12px 14px;
   border-bottom: 2px solid transparent;
   font-size: 0.81rem;
   font-weight: 500;
   color: var(--muted);
   white-space: nowrap;
+  transition: color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
 }
 
 .portal-tab:hover {
@@ -1924,13 +1926,13 @@
 }
 
 .portal-membership {
-  border-color: #0f3b37;
-  background: linear-gradient(150deg, #0f3b37, #0b2b28);
+  border-color: #0c3a35;
+  background: linear-gradient(150deg, #0c3a35, #0a2b27);
   color: rgba(255, 255, 255, 0.72);
 }
 
 .portal-membership .eyebrow {
-  color: #8fe0d4;
+  color: #9fd8cf;
 }
 
 .portal-membership h2 {
@@ -2086,18 +2088,18 @@
 }
 
 .portal-status-warning {
-  border-color: #fde3c8;
+  border-color: #efdcc0;
   background: var(--amber-soft);
 }
 
 .portal-status-danger {
-  border-color: #fecaca;
+  border-color: #f0c9c4;
   background: var(--red-soft);
 }
 
 .portal-status-muted {
   border-color: var(--line);
-  background: #f7f8fa;
+  background: #f8f5ef;
 }
 
 .portal-missing {
@@ -2138,17 +2140,17 @@
   gap: 24px;
   padding: 28px;
   border-color: #c7e5e1;
-  background: linear-gradient(120deg, #f0faf8 0%, #fff 100%);
+  background: linear-gradient(120deg, #f6f2ea 0%, #fff 100%);
 }
 
 .dues-hero-overdue {
-  border-color: #fed7aa;
-  background: linear-gradient(120deg, #fff7ed 0%, #fff 100%);
+  border-color: #f2dcc4;
+  background: linear-gradient(120deg, #fbf1e2 0%, #fff 100%);
 }
 
 .dues-hero-clear {
-  border-color: #bbf7d0;
-  background: linear-gradient(120deg, #f0fdf4 0%, #fff 100%);
+  border-color: #cfe6d7;
+  background: linear-gradient(120deg, #e8f4ec 0%, #fff 100%);
 }
 
 .dues-hero-copy h2 {
@@ -2215,7 +2217,7 @@
   padding: 12px 14px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: #fafbfc;
+  background: #fcfaf6;
   font-size: 0.73rem;
   color: var(--muted);
 }
@@ -2235,7 +2237,7 @@
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #f8fafc;
+  background: #faf7f2;
 }
 
 .dues-pay-amount span {
@@ -2292,7 +2294,7 @@
   width: 34px;
   height: 34px;
   border-radius: 8px;
-  background: #f1f4f8;
+  background: #f4efe7;
   color: var(--text-soft);
 }
 
@@ -2517,7 +2519,7 @@
   margin-top: 3px;
   padding: 1px 6px;
   border-radius: 5px;
-  background: #f1f4f8;
+  background: #f4efe7;
   font-size: 0.71rem;
   color: var(--text-soft);
 }
@@ -2567,7 +2569,7 @@
   padding: 16px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #fafbfc;
+  background: #fcfaf6;
 }
 
 .member-dues-head {
@@ -2642,7 +2644,7 @@
 }
 
 .snapshot-expired {
-  background: #98a2b3;
+  background: #9a9186;
 }
 
 /* ------------------------------------------------------------------
@@ -2969,7 +2971,7 @@
   position: relative;
   overflow: hidden;
   aspect-ratio: 16 / 10;
-  background: linear-gradient(135deg, #e6f5f2, #f5f7fa);
+  background: linear-gradient(135deg, #e7f1ee, #f7f3ec);
 }
 
 .fleet-photo img {
@@ -2993,7 +2995,7 @@
   gap: 6px;
   padding: 5px 10px;
   border-radius: 999px;
-  background: rgba(11, 18, 32, 0.78);
+  background: rgba(26, 23, 20, 0.78);
   color: #fff;
   font-size: 0.68rem;
   font-weight: 600;
@@ -3128,7 +3130,7 @@
 }
 
 .fleet-home {
-  background: linear-gradient(180deg, #f8fbfa, #f2f7f6);
+  background: linear-gradient(180deg, #faf7f2, #f4efe7);
 }
 
 .fleet-home-note {
@@ -3159,9 +3161,9 @@
   gap: 18px;
   margin-top: 20px;
   padding: 16px;
-  border: 1px dashed #cfd8e3;
+  border: 1px dashed #d7cec0;
   border-radius: var(--radius);
-  background: #f8fafc;
+  background: #faf7f2;
 }
 
 .vehicle-photo-preview {
@@ -3172,7 +3174,7 @@
   aspect-ratio: 4 / 3;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #e6f5f2, #eef1f5);
+  background: linear-gradient(135deg, #e7f1ee, #f1ece3);
 }
 
 .vehicle-photo-preview img {
@@ -3253,7 +3255,7 @@
   padding: 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: #f8fafc;
+  background: #faf7f2;
 }
 
 .member-fleet-panel img {
@@ -3359,7 +3361,7 @@
 }
 
 .check-field.is-invalid {
-  color: #b91c1c;
+  color: #b42318;
 }
 
 .check-error {
@@ -3420,12 +3422,12 @@
 }
 
 .radio-option:hover {
-  border-color: #cbd5e1;
+  border-color: #d7cec0;
 }
 
 .radio-option.is-selected {
   border-color: var(--brand);
-  background: #f0fdfa;
+  background: #f0f5f2;
 }
 
 .radio-option input {

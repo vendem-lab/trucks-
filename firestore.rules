@@ -25,7 +25,7 @@ service cloud.firestore {
         && data.active == true
         && data.photo is string
         && data.photo.size() < 900000
-        && (data.photo.matches('^data:image/(jpeg|png|webp);base64,.+')
+        && (data.photo.matches('^data:image/jpeg;base64,[A-Za-z0-9+/]+={0,2}$')
           || data.photo.matches('^/fleet/[a-z-]+\\.svg$'));
     }
     function validLoadRequest(data) {
@@ -108,7 +108,7 @@ service cloud.firestore {
         && data.photo is string
         && data.photo.size() < 900000
         && (data.photo == ''
-          || data.photo.matches('^data:image/(jpeg|png|webp);base64,.+'));
+          || data.photo.matches('^data:image/jpeg;base64,[A-Za-z0-9+/]+={0,2}$'));
     }
     function validDeliveryConfirmation(data) {
       return data.keys().hasOnly([
@@ -158,7 +158,9 @@ service cloud.firestore {
             'publicProfile', 'fleetPhoto', 'updatedAt'
           ])
           && request.resource.data.get('fleetPhoto', '') is string
-          && request.resource.data.get('fleetPhoto', '').size() <= 900000);
+          && request.resource.data.get('fleetPhoto', '').size() <= 900000
+          && (request.resource.data.get('fleetPhoto', '') == ''
+            || request.resource.data.get('fleetPhoto', '').matches('^data:image/jpeg;base64,[A-Za-z0-9+/]+={0,2}$')));
       allow delete: if isStaff();
     }
     match /fleet/{memberId} {

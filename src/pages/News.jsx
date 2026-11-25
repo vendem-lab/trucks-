@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import PageHero from '../components/PageHero.jsx';
 import Icon from '../components/Icon.jsx';
+import { SkeletonCard, SkeletonGrid } from '../components/Skeleton.jsx';
 import { NEWS_CATEGORIES } from '../config.js';
 import { useStore } from '../lib/store.js';
 import { formatDate } from '../lib/format.js';
@@ -61,8 +62,9 @@ export default function News() {
           </div>
 
           {state.loading ? (
-            <div className="card">
-              <p>Loading union updates…</p>
+            <div className="skeleton-stack" style={{ gap: 24 }}>
+              <SkeletonCard lines={4} />
+              <SkeletonGrid count={3} lines={2} />
             </div>
           ) : (
             <>

@@ -26,8 +26,11 @@ describe('validateDelivery', () => {
   it('rejects an oversized or malformed photo', () => {
     expect(validateDelivery({ note: 'Delivered safely.', photo: 'not-a-data-url' }).photo).toBeTruthy();
     expect(
-      validateDelivery({ note: 'Delivered safely.', photo: `data:image/png;base64,${'a'.repeat(900001)}` }).photo
+      validateDelivery({ note: 'Delivered safely.', photo: `data:image/jpeg;base64,${'a'.repeat(900001)}` }).photo
     ).toMatch(/too large/i);
+    expect(
+      validateDelivery({ note: 'Delivered safely.', photo: 'data:image/png;base64,abc' }).photo
+    ).toMatch(/JPG/i);
   });
 });
 

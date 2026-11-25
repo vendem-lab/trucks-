@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import Icon from './Icon.jsx';
 import StatusBadge from './StatusBadge.jsx';
 import AssistantWidget from './AssistantWidget.jsx';
+import { SkeletonCard } from './Skeleton.jsx';
 import { useAuth } from '../context/authContext.js';
 import { useToast } from '../context/ToastContext.jsx';
 import { useStore } from '../lib/store.js';
@@ -28,7 +29,7 @@ export default function MemberLayout() {
       return (
         <section className="section">
           <div className="container container-narrow">
-            <div className="card">Loading your member record…</div>
+            <SkeletonCard lines={4} />
           </div>
         </section>
       );

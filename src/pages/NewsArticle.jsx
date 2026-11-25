@@ -1,5 +1,6 @@
 import { Link, useParams } from 'react-router-dom';
 import Icon from '../components/Icon.jsx';
+import { SkeletonCard } from '../components/Skeleton.jsx';
 import JoinCta from '../components/JoinCta.jsx';
 import { NEWS_CATEGORIES } from '../config.js';
 import { useStore } from '../lib/store.js';
@@ -19,7 +20,7 @@ export default function NewsArticle() {
       return (
         <section className="section">
           <div className="container container-narrow">
-            <div className="card">Loading this update…</div>
+            <SkeletonCard lines={6} />
           </div>
         </section>
       );

@@ -5,6 +5,7 @@ import Field from '../components/Field.jsx';
 import Icon from '../components/Icon.jsx';
 import JoinCta from '../components/JoinCta.jsx';
 import Modal from '../components/Modal.jsx';
+import { SkeletonList } from '../components/Skeleton.jsx';
 import { EVENT_TYPES } from '../config.js';
 import { isDemoMode, registerForEvent, useStore } from '../lib/store.js';
 import { eventDateParts, eventDateRange, eventTime } from '../lib/union.js';
@@ -177,7 +178,7 @@ export default function Events() {
 
           {state.loading ? (
             <div className="card">
-              <p>Loading events…</p>
+              <SkeletonList count={3} avatar />
             </div>
           ) : upcoming.length ? (
             <div className="event-list">

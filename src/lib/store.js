@@ -666,7 +666,7 @@ export function getMemberByEmail(email) {
 const MAX_FLEET_PHOTO_LENGTH = 900000;
 
 function validFleetPhoto(photo) {
-  return String(photo || '').startsWith('data:image/');
+  return /^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(String(photo || ''));
 }
 
 export function getPublicFleet() {

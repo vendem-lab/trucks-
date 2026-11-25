@@ -29,10 +29,12 @@ export function validateDelivery({ note, photo } = {}) {
   }
 
   if (photo) {
-    if (typeof photo !== 'string' || !/^data:image\/(jpeg|png|webp);base64,/.test(photo)) {
-      errors.photo = 'Choose a JPG, PNG or WebP photo.';
+    if (typeof photo !== 'string') {
+      errors.photo = 'Choose a valid JPG photo.';
     } else if (photo.length > DELIVERY_PHOTO_MAX) {
       errors.photo = 'That photo is too large. Try a smaller image.';
+    } else if (!/^data:image\/jpeg;base64,[A-Za-z0-9+/]+={0,2}$/.test(photo)) {
+      errors.photo = 'Choose a valid JPG photo.';
     }
   }
 

@@ -5,6 +5,7 @@ import FleetCard from '../components/FleetCard.jsx';
 import JoinCta from '../components/JoinCta.jsx';
 import Logo from '../components/Logo.jsx';
 import StatusBadge from '../components/StatusBadge.jsx';
+import { SkeletonGrid, SkeletonList } from '../components/Skeleton.jsx';
 import { BRAND, MEMBER_BENEFITS, PILLARS, NEWS_CATEGORIES, EVENT_TYPES } from '../config.js';
 import { useStore } from '../lib/store.js';
 import { formatDate } from '../lib/format.js';
@@ -199,7 +200,7 @@ export default function Home() {
           </div>
 
           {state.loading ? (
-            <div className="card"><p>Loading the load board…</p></div>
+            <SkeletonGrid count={3} lines={2} />
           ) : openLoads.length ? (
             <div className="load-grid">
               {openLoads.map((load) => (
@@ -241,7 +242,7 @@ export default function Home() {
           </div>
 
           {state.loading ? (
-            <div className="card"><p>Loading the member fleet…</p></div>
+            <SkeletonGrid count={3} lines={2} />
           ) : fleetPreview.length ? (
             <div className="fleet-grid fleet-grid-preview">
               {fleetPreview.map((vehicle) => (
@@ -334,7 +335,7 @@ export default function Home() {
               </div>
               <div className="news-list">
                 {state.loading ? (
-                  <div className="card"><p>Loading updates…</p></div>
+                  <SkeletonList count={3} />
                 ) : latestNews.length ? (
                   latestNews.map((article) => (
                     <Link key={article.id} to={`/news/${article.id}`} className="news-row">
@@ -364,7 +365,7 @@ export default function Home() {
               </div>
               <div className="event-mini-list">
                 {state.loading ? (
-                  <div className="card"><p>Loading events…</p></div>
+                  <SkeletonList count={3} />
                 ) : upcoming.length ? (
                   upcoming.map((event) => {
                     const parts = eventDateParts(event.startDate);

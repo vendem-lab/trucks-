@@ -71,7 +71,13 @@ A load moves through `open` → `filled` (shown as **Claimed**) → `delivered` 
 - Staff review delivery evidence at `/admin/loads`, accept or dismiss a shipper confirmation, or confirm a delivery or record a problem directly. Accepting closes the load; a problem report marks it `disputed`. Reopening a load clears the claim and removes its delivery record.
 - Existing `loads` documents created before this change must have their `contactName`, `contactPhone`, and `contactEmail` fields moved into `loadContacts` before the tightened rules are deployed.
 
-Before entering real member information, review and verify `firestore.rules` against the Firebase Emulator Suite. Deploy the rules from the project root with:
+Before entering real member information, review and verify `firestore.rules` against the Firebase Emulator Suite:
+
+```bash
+npm.cmd run test:rules
+```
+
+The emulator suite runs locally with no Firebase billing usage. Deploy the rules from the project root with:
 
 ```bash
 firebase deploy --only firestore:rules
